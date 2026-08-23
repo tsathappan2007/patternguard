@@ -1,3 +1,6 @@
+<div align="center"><img src="logoo.webp"></div>
+
+
 # Houdini — Autonomous Dark Pattern Prosecution Platform
 
 > **"We don't just detect dark patterns. We prosecute them."**
