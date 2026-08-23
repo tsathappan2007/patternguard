@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  houdini:
+    build: .
+    container_name: houdini-prosecutor
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      # Optional: Provide default keys if desired (or leave blank for Python local engine)
+      - GROK_API_KEY=${GROK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+

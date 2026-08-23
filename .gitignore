@@ -1,0 +1,112 @@
+# ==========================================
+# HOUDINI - GITIGNORE
+# ==========================================
+
+# 1. Environment & API Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# 2. Python Environment & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 3. Node.js & Frontend Build
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# 4. Database Files
+*.sqlite
+*.sqlite3
+*.db
+backend/database/*.db
+backend/database/*.sqlite
+
+# 5. Playwright & Scraper Temporary Output
+.playwright/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Static generated screenshots and evidence (keep folders, ignore generated images)
+backend/static/screenshots/*.png
+backend/static/evidence/*.png
+!backend/static/screenshots/.gitkeep
+!backend/static/evidence/.gitkeep
+
+# 6. Operating System & IDE Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editors & IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.bak
+
+# 7. Antigravity & Agent Scratch Caches
+.gemini/
+.antigravity/
+.system_generated/
+scratch/
+
