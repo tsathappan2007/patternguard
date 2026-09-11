@@ -124,7 +124,8 @@ class AutonomousFlowCrawler:
         navigation_nodes = []
         all_findings = []
         flow_context = {"steps": [], "flow_type": flow_type, "signup_step_count": 1}
-        visited_urls = set()
+        visited_states = set()
+        performed_actions = set()
 
         with sync_playwright() as p:
             browser = None
@@ -175,21 +176,18 @@ class AutonomousFlowCrawler:
             page = context.new_page()
 
             current_url = target_url
+            page_is_ready = False
 
             for step_idx in range(1, max_steps + 1):
                 if cancel_event and cancel_event.is_set():
                     emit("log", {"message": "Audit cancelled because the client disconnected."})
                     break
-                normalized_current = current_url.rstrip("/")
-                if normalized_current in visited_urls:
-                    emit("log", {"message": f"Navigation loop prevented at {current_url}"})
-                    break
-                visited_urls.add(normalized_current)
-                emit("log", {"message": f"Step {step_idx}: Navigating to {current_url}..."})
                 step_title = f"Step {step_idx}"
 
                 try:
-                    page.goto(current_url, wait_until="domcontentloaded", timeout=25000)
+                    if not page_is_ready:
+                        emit("log", {"message": f"Step {step_idx}: Navigating to {current_url}..."})
+                        page.goto(current_url, wait_until="domcontentloaded", timeout=25000)
                     try:
                         page.wait_for_load_state("networkidle", timeout=5000)
                     except Exception:
@@ -232,6 +230,8 @@ class AutonomousFlowCrawler:
                     if step_idx == 1:
                         raise RuntimeError(f"Unable to load target URL: {nav_error}") from nav_error
                     break
+                finally:
+                    page_is_ready = False
 
                 # Capture raw screenshot
                 raw_filename = f"raw_{scan_id}_step{step_idx}.png"
@@ -241,6 +241,11 @@ class AutonomousFlowCrawler:
 
                 # High-speed single JS evaluation for comprehensive DOM features (<10ms)
                 step_data = self._fast_extract_dom(page, step_idx, raw_rel_url)
+                state_key = (page.url.rstrip("/"), step_data.get("page_context", "unknown"))
+                if state_key in visited_states:
+                    emit("log", {"message": f"Navigation loop prevented at {page.url}"})
+                    break
+                visited_states.add(state_key)
                 emit("step_started", {
                     "step_number": step_idx,
                     "title": step_title,
@@ -326,8 +331,19 @@ class AutonomousFlowCrawler:
                 # Determine next transition URL and reason
                 next_url = None
                 nav_action_reason = "Final Step in Funnel Reached"
+                navigation_action = None
+                transition = {"continue": False, "page_ready": False}
                 if step_idx < max_steps:
-                    next_url, nav_action_reason = self._find_next_url_with_intent(page, flow_type)
+                    transition = self._advance_flow_safely(
+                        page,
+                        flow_type,
+                        step_data.get("page_context", "unknown"),
+                        performed_actions,
+                        emit
+                    )
+                    next_url = transition.get("next_url")
+                    nav_action_reason = transition.get("reason", "Completed Funnel Walkthrough")
+                    navigation_action = transition.get("action_type")
 
                 # Build rich navigation node structure
                 node_structure = {
@@ -350,7 +366,8 @@ class AutonomousFlowCrawler:
                     "page_context": step_data.get("page_context", "unknown"),
                     "disclaimers": step_data.get("disclaimers", []),
                     "next_navigation_target": next_url,
-                    "navigation_intent": nav_action_reason
+                    "navigation_intent": nav_action_reason,
+                    "navigation_action": navigation_action
                 }
                 navigation_nodes.append(node_structure)
 
@@ -361,10 +378,10 @@ class AutonomousFlowCrawler:
                     "node_data": node_structure
                 })
 
-                if next_url and next_url.rstrip("/") not in visited_urls:
-                    current_url = self._validate_public_target(next_url)
-                else:
+                if not transition.get("continue") or not next_url:
                     break
+                current_url = self._validate_public_target(next_url)
+                page_is_ready = bool(transition.get("page_ready"))
 
             browser.close()
 
@@ -517,7 +534,8 @@ class AutonomousFlowCrawler:
                         "price_currency": step.get("price_currency"),
                         "price_symbol": step.get("price_symbol"),
                         "price_role": step.get("price_role"),
-                        "price_selector": step.get("price_selector")
+                        "price_selector": step.get("price_selector"),
+                        "navigation_action": step.get("navigation_action")
                     })
                 ))
 
@@ -627,7 +645,8 @@ class AutonomousFlowCrawler:
                     const pageText = document.body ? document.body.innerText.slice(0, 12000) : '';
                     const contextText = `${window.location.pathname} ${document.title} ${pageText.slice(0, 3000)}`;
                     const hasPasswordField = Boolean(document.querySelector('input[type="password"]'));
-                    const isAuth = hasPasswordField || /(?:\/signin|\/login|\/register|sign in to|log in to)/i.test(contextText);
+                    const authLocation = `${window.location.pathname} ${document.title}`;
+                    const isAuth = hasPasswordField || /(?:\/ap\/signin|\/signin|\/login|\/register|amazon sign-in)/i.test(authLocation);
                     const strongProductSignal = /(?:\/dp\/|\/gp\/product\/)/i.test(window.location.pathname)
                         || Boolean(document.querySelector('[itemprop="product"], #buy-now-button, #add-to-cart-button'));
                     const isProduct = strongProductSignal
@@ -774,6 +793,298 @@ class AutonomousFlowCrawler:
             return None
         return amount, currency, currency_to_symbol.get(currency, match.group("symbol") or "")
 
+    @staticmethod
+    def _choose_safe_checkout_action(
+        candidates: List[Dict[str, Any]],
+        page_context: str,
+        phase: str = "primary"
+    ) -> Optional[Dict[str, Any]]:
+        """Choose only reversible cart/navigation actions, never purchase actions."""
+        blocked = re.compile(
+            r"sign[ -]?in|log[ -]?in|register|create account|pay(?:ment)?\b|"
+            r"place(?: your)? order|submit order|confirm order|complete purchase|"
+            r"authorize|one[- ]?click|1[- ]?click",
+            re.IGNORECASE
+        )
+        add_to_cart = re.compile(r"\badd(?: item)? to (?:cart|basket)\b", re.IGNORECASE)
+        open_cart = re.compile(r"\b(?:view|go to|open|shopping|your) (?:cart|basket)\b", re.IGNORECASE)
+        checkout = re.compile(r"\b(?:proceed(?: to)?|go to|start) checkout\b|\bcheckout\b", re.IGNORECASE)
+
+        for candidate in candidates:
+            searchable = " ".join(str(candidate.get(key, "")) for key in ("label", "href", "form_action"))
+            if blocked.search(searchable):
+                continue
+            if page_context == "product" and phase == "primary" and add_to_cart.search(searchable):
+                return {**candidate, "action_type": "add_to_cart"}
+            if phase == "after_add" and (
+                open_cart.search(searchable)
+                or re.search(r"/(?:gp/)?(?:cart|basket)(?:/|\?|$)", searchable, re.IGNORECASE)
+            ):
+                return {**candidate, "action_type": "open_cart"}
+            if page_context == "cart" and checkout.search(searchable):
+                return {**candidate, "action_type": "begin_checkout"}
+        return None
+
+    @staticmethod
+    def _discover_action_candidates(page) -> List[Dict[str, Any]]:
+        try:
+            return page.evaluate(r"""
+                () => {
+                    const visible = el => {
+                        const style = window.getComputedStyle(el);
+                        const box = el.getBoundingClientRect();
+                        return box.width > 0 && box.height > 0
+                            && style.visibility !== 'hidden'
+                            && style.display !== 'none'
+                            && !el.disabled
+                            && el.getAttribute('aria-disabled') !== 'true';
+                    };
+                    const elements = Array.from(document.querySelectorAll(
+                        'button, input[type="submit"], input[type="button"], [role="button"], a[href]'
+                    )).filter(visible).slice(0, 160);
+                    return elements.map((el, index) => {
+                        const actionId = `pg-safe-action-${index}`;
+                        el.setAttribute('data-pattern-guard-action-id', actionId);
+                        const form = el.closest('form');
+                        return {
+                            action_id: actionId,
+                            label: (el.innerText || el.value || el.getAttribute('aria-label') || el.title || '').trim().slice(0, 240),
+                            href: el.href || '',
+                            form_action: form ? (form.action || '') : '',
+                            id: el.id || '',
+                            name: el.name || '',
+                            tag: el.tagName.toLowerCase(),
+                            type: (el.type || '').toLowerCase()
+                        };
+                    }).filter(item => {
+                        if (!item.href) return true;
+                        try { return new URL(item.href, window.location.href).origin === window.location.origin; }
+                        catch { return false; }
+                    });
+                }
+            """) or []
+        except Exception:
+            return []
+
+    @staticmethod
+    def _detect_page_context(page) -> str:
+        try:
+            return page.evaluate(r"""
+                () => {
+                    const text = `${window.location.pathname} ${document.title} ${(document.body?.innerText || '').slice(0, 2500)}`;
+                    const authLocation = `${window.location.pathname} ${document.title}`;
+                    if (document.querySelector('input[type="password"]') || /(?:\/ap\/signin|\/signin|\/login|\/register|amazon sign-in)/i.test(authLocation)) return 'auth';
+                    if (/(?:\/checkout|order summary|review your order|payment method)/i.test(text)
+                        || document.querySelector('[class*="order-total"], [class*="grand-total"], [class*="checkout-total"]')) return 'checkout';
+                    if (/(?:\/cart|\/basket|shopping cart|your basket)/i.test(text)
+                        || document.querySelector('[class*="basket"], [id*="basket"], [class*="cart-total"], [id*="cart-total"]')) return 'cart';
+                    if (/(?:\/dp\/|\/gp\/product\/)/i.test(window.location.pathname)
+                        || document.querySelector('[itemprop="product"], #buy-now-button, #add-to-cart-button')
+                        || /product details?|add to cart/i.test(text)) return 'product';
+                    return 'browse';
+                }
+            """)
+        except Exception:
+            return "unknown"
+
+    def _click_safe_action(
+        self,
+        page,
+        candidate: Dict[str, Any],
+        performed_actions: set,
+        emit: Callable[[str, Dict[str, Any]], None]
+    ) -> bool:
+        action_type = candidate.get("action_type", "safe_navigation")
+        action_key = (
+            page.url.rstrip("/"),
+            action_type,
+            candidate.get("label", "").lower().strip(),
+        )
+        if action_key in performed_actions:
+            emit("log", {"message": f"Safe action loop prevented: {action_type}"})
+            return False
+        performed_actions.add(action_key)
+        label = candidate.get("label") or action_type.replace("_", " ").title()
+        emit("log", {"message": f"[Safe Action]: {label[:100]}"})
+        try:
+            selector = f'[data-pattern-guard-action-id="{candidate["action_id"]}"]'
+            previous_url = page.url
+            # The element was already verified as visible, enabled, and safe.
+            # DOM activation handles controls rendered outside the initial
+            # viewport while still activating only the allow-listed element.
+            page.locator(selector).first.evaluate(r"""
+                element => {
+                    element.scrollIntoView({block: 'center', inline: 'center'});
+                    const form = element.closest('form');
+                    if (form && ['submit', 'image'].includes((element.type || '').toLowerCase())) {
+                        form.requestSubmit(element);
+                    } else {
+                        element.click();
+                    }
+                }
+            """)
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=8000)
+            except Exception:
+                pass
+            if action_type == "add_to_cart":
+                cart_change_confirmed = False
+                try:
+                    page.wait_for_url(lambda url: url != previous_url, timeout=8000)
+                    cart_change_confirmed = True
+                except Exception:
+                    pass
+                if not cart_change_confirmed:
+                    try:
+                        page.wait_for_function(r"""
+                        () => {
+                            const visible = el => {
+                                const style = window.getComputedStyle(el);
+                                const box = el.getBoundingClientRect();
+                                return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+                            };
+                            const count = document.querySelector('#nav-cart-count, [data-testid*="cart-count" i]');
+                            if (count && Number((count.textContent || '').trim()) > 0) return true;
+                            return Array.from(document.querySelectorAll('[role="alert"], h1, h2, div, span'))
+                                .some(el => visible(el) && /added to (?:your )?(?:cart|basket)/i.test(el.innerText || ''));
+                        }
+                        """, timeout=8000)
+                        cart_change_confirmed = True
+                    except Exception:
+                        pass
+                if not cart_change_confirmed:
+                    emit("log", {
+                        "message": "[Safe Action Notice]: Add-to-cart did not produce a verified cart change."
+                    })
+                    return False
+            page.wait_for_timeout(1000)
+            return True
+        except Exception as action_error:
+            emit("log", {"message": f"[Safe Action Notice]: Could not perform {action_type}: {str(action_error)[:120]}"})
+            return False
+
+    def _advance_flow_safely(
+        self,
+        page,
+        flow_type: str,
+        page_context: str,
+        performed_actions: set,
+        emit: Callable[[str, Dict[str, Any]], None]
+    ) -> Dict[str, Any]:
+        """Advance a flow without authentication, payment, or order submission."""
+        if flow_type != "checkout":
+            next_url, reason = self._find_next_url_with_intent(page, flow_type)
+            return {
+                "continue": bool(next_url), "page_ready": False,
+                "next_url": next_url, "reason": reason, "action_type": "follow_link" if next_url else None
+            }
+
+        if page_context == "auth":
+            return {
+                "continue": False, "page_ready": False, "next_url": None,
+                "reason": "Authentication boundary reached; stopping unauthenticated audit",
+                "action_type": "safety_stop_authentication"
+            }
+        if page_context == "checkout":
+            return {
+                "continue": False, "page_ready": False, "next_url": None,
+                "reason": "Checkout review reached; payment and order submission are disabled",
+                "action_type": "safety_stop_before_payment"
+            }
+
+        candidates = self._discover_action_candidates(page)
+        if page_context == "product":
+            add_action = self._choose_safe_checkout_action(candidates, page_context)
+            if not add_action:
+                next_url, reason = self._find_next_url_with_intent(page, flow_type)
+                return {
+                    "continue": bool(next_url), "page_ready": False,
+                    "next_url": next_url, "reason": reason,
+                    "action_type": "follow_checkout_link" if next_url else None
+                }
+            if not self._click_safe_action(page, add_action, performed_actions, emit):
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Add-to-cart control was found but could not be activated safely",
+                    "action_type": "add_to_cart_failed"
+                }
+
+            resulting_context = self._detect_page_context(page)
+            if resulting_context == "auth":
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Authentication boundary reached after cart action; stopping audit",
+                    "action_type": "safety_stop_authentication"
+                }
+            if resulting_context in {"cart", "checkout"}:
+                return {
+                    "continue": True, "page_ready": True, "next_url": page.url,
+                    "reason": "Added item to cart using a reversible safe action",
+                    "action_type": "add_to_cart"
+                }
+
+            cart_action = self._choose_safe_checkout_action(
+                self._discover_action_candidates(page), "product", phase="after_add"
+            )
+            if cart_action and self._click_safe_action(page, cart_action, performed_actions, emit):
+                resulting_context = self._detect_page_context(page)
+                if resulting_context == "auth":
+                    return {
+                        "continue": False, "page_ready": False, "next_url": None,
+                        "reason": "Authentication boundary reached; stopping unauthenticated audit",
+                        "action_type": "safety_stop_authentication"
+                    }
+                if resulting_context in {"cart", "checkout"}:
+                    return {
+                        "continue": True, "page_ready": True, "next_url": page.url,
+                        "reason": "Added item to cart and opened the cart safely",
+                        "action_type": "add_to_cart_then_open_cart"
+                    }
+            return {
+                "continue": False, "page_ready": False, "next_url": None,
+                "reason": "Item was added, but no verified cart transition was available",
+                "action_type": "add_to_cart"
+            }
+
+        if page_context == "cart":
+            checkout_action = self._choose_safe_checkout_action(candidates, page_context)
+            if not checkout_action:
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Cart inspected; no safe checkout-entry control was found",
+                    "action_type": "safety_stop_in_cart"
+                }
+            if not self._click_safe_action(page, checkout_action, performed_actions, emit):
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Checkout-entry control could not be activated safely",
+                    "action_type": "begin_checkout_failed"
+                }
+            resulting_context = self._detect_page_context(page)
+            if resulting_context == "auth":
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Authentication required to continue; sign-in was not attempted",
+                    "action_type": "safety_stop_authentication"
+                }
+            if resulting_context == "checkout":
+                return {
+                    "continue": True, "page_ready": True, "next_url": page.url,
+                    "reason": "Entered checkout review; payment remains disabled",
+                    "action_type": "begin_checkout"
+                }
+            return {
+                "continue": False, "page_ready": False, "next_url": None,
+                "reason": "Checkout entry did not reach a verified checkout page",
+                "action_type": "safety_stop_unverified_transition"
+            }
+
+        return {
+            "continue": False, "page_ready": False, "next_url": None,
+            "reason": "Page is outside the verified checkout funnel; stopping audit",
+            "action_type": "safety_stop_outside_flow"
+        }
+
     def _find_next_url_with_intent(self, page, flow_type: str) -> (Optional[str], str):
         """Finds next step URL and returns the strategic navigation intent."""
         try:
@@ -807,7 +1118,7 @@ class AutonomousFlowCrawler:
                     // Require an explicit flow-specific progression link. Never
                     // wander through the site's global navigation as a fallback.
                     const priorityRegex = flowType === 'checkout'
-                        ? /proceed(?: to)? checkout|checkout|buy now|view cart|go to cart|review order|continue to payment|place order/i
+                        ? /proceed(?: to)? checkout|checkout|view cart|go to cart|review order/i
                         : /start|free trial|get access|continue|sign up|join|select plan/i;
                     const nextBtn = links.find(l => priorityRegex.test(`${l.innerText || ''} ${l.getAttribute('aria-label') || ''} ${l.href || ''}`));
                     if (nextBtn && nextBtn.href && nextBtn.href !== window.location.href) {

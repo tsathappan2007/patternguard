@@ -88,6 +88,38 @@ def test_price_inflation_requires_mandatory_fee_evidence():
     assert not any(f.pattern_name == "Late-Stage Checkout Price Inflation" for f in findings)
 
 
+def test_safe_checkout_actions_allow_cart_progression_only():
+    candidates = [
+        {"label": "Buy Now with 1-Click", "href": "/buy-now"},
+        {"label": "Add to Cart", "href": ""},
+        {"label": "Place your order", "href": "/checkout/submit"},
+    ]
+    action = AutonomousFlowCrawler._choose_safe_checkout_action(candidates, "product")
+    assert action["label"] == "Add to Cart"
+    assert action["action_type"] == "add_to_cart"
+
+    assert AutonomousFlowCrawler._choose_safe_checkout_action(
+        [{"label": "Authorize Payment", "href": ""}], "checkout"
+    ) is None
+
+
+def test_safe_checkout_actions_open_cart_and_stop_before_payment():
+    open_cart = AutonomousFlowCrawler._choose_safe_checkout_action(
+        [{"label": "Cart (1)", "href": "https://shop.example/gp/cart/view.html"}],
+        "product",
+        phase="after_add"
+    )
+    assert open_cart["action_type"] == "open_cart"
+
+    begin_checkout = AutonomousFlowCrawler._choose_safe_checkout_action(
+        [{"label": "Proceed to checkout", "href": "/checkout"}], "cart"
+    )
+    assert begin_checkout["action_type"] == "begin_checkout"
+    assert AutonomousFlowCrawler._choose_safe_checkout_action(
+        [{"label": "Place order and pay", "href": "/order"}], "cart"
+    ) is None
+
+
 def test_mock_pages_use_local_stylesheet():
     pages = [
         value for name, value in vars(mock_templates).items()

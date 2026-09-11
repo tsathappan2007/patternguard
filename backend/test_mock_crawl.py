@@ -29,6 +29,9 @@ async def test_crawler_mock():
         flow_type="checkout",
         max_steps=4
     )
+    assert res_shop["total_steps"] == 2
+    assert res_shop["steps"][0]["navigation_action"] == "add_to_cart"
+    assert res_shop["steps"][1]["navigation_action"] == "safety_stop_before_payment"
     print(f"ShopSneak Total Nodes Traversed: {res_shop['total_steps']}")
     print(f"ShopSneak Manipulation Score: {res_shop['score_summary']['manipulation_index']}/100")
     for step in res_shop["steps"]:

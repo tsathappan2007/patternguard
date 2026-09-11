@@ -51,9 +51,11 @@ SHOPSNEAK_HTML_STEP1 = """
                     </label>
                 </div>
                 
-                <a href="/mock/shopsneak/checkout" class="mt-6 block text-center bg-blue-600 text-white font-bold py-3.5 px-6 uppercase tracking-wider hover:bg-blue-700">
-                    Proceed to Instant Checkout →
-                </a>
+                <button id="add-to-cart-button" type="button"
+                    onclick="window.location.href='/mock/shopsneak/checkout'"
+                    class="mt-6 block w-full text-center bg-blue-600 text-white font-bold py-3.5 px-6 uppercase tracking-wider hover:bg-blue-700">
+                    Add to Cart &amp; Review Checkout →
+                </button>
             </div>
         </div>
     </div>
