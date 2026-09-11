@@ -1,136 +1,21 @@
-* { box-sizing: border-box; }
-html { color-scheme: light; }
-body { margin: 0; line-height: 1.5; }
-a { color: inherit; text-decoration: none; }
-button, input, select, textarea { font: inherit; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
 
-.font-sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.font-extrabold { font-weight: 800; }
-.font-black { font-weight: 900; }
-.text-\[10px\] { font-size: 10px; }
-.text-xs { font-size: 12px; }
-.text-sm { font-size: 14px; }
-.text-lg { font-size: 18px; }
-.text-xl { font-size: 20px; }
-.text-2xl { font-size: 24px; }
-.text-3xl { font-size: 30px; }
-.text-center { text-align: center; }
-.uppercase { text-transform: uppercase; }
-.underline { text-decoration: underline; }
-.tracking-tight { letter-spacing: -0.025em; }
-.tracking-wide { letter-spacing: 0.025em; }
-.tracking-wider { letter-spacing: 0.05em; }
+:root { --ink:#18233a; --muted:#667085; --line:#e7eaf0; --brand:#4f46e5; --canvas:#f6f7fb; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--canvas); font:14px/1.5 "DM Sans",Arial,sans-serif; }
+a { color:inherit; text-decoration:none; } button,input,select { font:inherit; }
 
-.text-white { color: #fff; }
-.text-black { color: #000; }
-.text-gray-400 { color: #9ca3af; }
-.text-gray-500 { color: #6b7280; }
-.text-gray-600 { color: #4b5563; }
-.text-gray-700 { color: #374151; }
-.text-gray-800 { color: #1f2937; }
-.text-gray-900 { color: #111827; }
-.text-blue-600 { color: #2563eb; }
-.text-blue-700 { color: #1d4ed8; }
-.text-blue-800 { color: #1e40af; }
-.text-red-600 { color: #dc2626; }
-.text-red-700 { color: #b91c1c; }
-.text-red-800 { color: #991b1b; }
-.text-green-700 { color: #15803d; }
-.text-green-800 { color: #166534; }
-.text-amber-900 { color: #78350f; }
-
-.bg-white { background-color: #fff; }
-.bg-gray-50 { background-color: #f9fafb; }
-.bg-gray-100 { background-color: #f3f4f6; }
-.bg-gray-200 { background-color: #e5e7eb; }
-.bg-blue-50\/50 { background-color: rgba(239, 246, 255, 0.5); }
-.bg-blue-600 { background-color: #2563eb; }
-.bg-red-100 { background-color: #fee2e2; }
-.bg-red-600 { background-color: #dc2626; }
-.bg-green-50 { background-color: #f0fdf4; }
-.bg-green-100 { background-color: #dcfce7; }
-.bg-green-600 { background-color: #16a34a; }
-.bg-amber-50 { background-color: #fffbeb; }
-
-.block { display: block; }
-.flex { display: flex; }
-.grid { display: grid; }
-.flex-col { flex-direction: column; }
-.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-.items-center { align-items: center; }
-.items-start { align-items: flex-start; }
-.justify-center { justify-content: center; }
-.justify-between { justify-content: space-between; }
-.justify-end { justify-content: flex-end; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.gap-8 { gap: 32px; }
-.space-y-3 > * + * { margin-top: 12px; }
-
-.w-4 { width: 16px; }
-.w-5 { width: 20px; }
-.w-full { width: 100%; }
-.h-4 { height: 16px; }
-.h-5 { height: 20px; }
-.h-64 { height: 256px; }
-.min-h-screen { min-height: 100vh; }
-.max-w-md { max-width: 448px; }
-.max-w-xl { max-width: 576px; }
-.max-w-2xl { max-width: 672px; }
-.max-w-4xl { max-width: 896px; }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.my-4 { margin-top: 16px; margin-bottom: 16px; }
-.my-6 { margin-top: 24px; margin-bottom: 24px; }
-.mt-0\.5 { margin-top: 2px; }
-.mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-3 { margin-top: 12px; }
-.mt-4 { margin-top: 16px; }
-.mt-6 { margin-top: 24px; }
-.mb-2 { margin-bottom: 8px; }
-.mb-4 { margin-bottom: 16px; }
-.mb-6 { margin-bottom: 24px; }
-.p-2 { padding: 8px; }
-.p-3 { padding: 12px; }
-.p-4 { padding: 16px; }
-.p-6 { padding: 24px; }
-.p-8 { padding: 32px; }
-.px-2 { padding-left: 8px; padding-right: 8px; }
-.px-3 { padding-left: 12px; padding-right: 12px; }
-.px-6 { padding-left: 24px; padding-right: 24px; }
-.py-1 { padding-top: 4px; padding-bottom: 4px; }
-.py-2 { padding-top: 8px; padding-bottom: 8px; }
-.py-3 { padding-top: 12px; padding-bottom: 12px; }
-.py-3\.5 { padding-top: 14px; padding-bottom: 14px; }
-.py-4 { padding-top: 16px; padding-bottom: 16px; }
-.py-8 { padding-top: 32px; padding-bottom: 32px; }
-.pt-3 { padding-top: 12px; }
-.pt-4 { padding-top: 16px; }
-.pb-3 { padding-bottom: 12px; }
-.pb-4 { padding-bottom: 16px; }
-
-.border { border: 1px solid #d1d5db; }
-.border-b { border-bottom: 1px solid #d1d5db; }
-.border-t { border-top: 1px solid #d1d5db; }
-.border-gray-200 { border-color: #e5e7eb; }
-.border-gray-300 { border-color: #d1d5db; }
-.border-blue-200 { border-color: #bfdbfe; }
-.border-red-200 { border-color: #fecaca; }
-.border-red-300 { border-color: #fca5a5; }
-.border-green-200 { border-color: #bbf7d0; }
-.border-green-300 { border-color: #86efac; }
-.border-amber-200 { border-color: #fde68a; }
-.border-amber-300 { border-color: #fcd34d; }
-.rounded { border-radius: 4px; }
-.shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
-.cursor-pointer { cursor: pointer; }
-.hover\:bg-blue-700:hover { background-color: #1d4ed8; }
-.hover\:text-gray-600:hover { color: #4b5563; }
-.hover\:text-gray-700:hover { color: #374151; }
-
-@media (min-width: 768px) {
-  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.demo-announcement { background:#171b2d; color:#dce3ff; font-size:12px; letter-spacing:.02em; padding:10px 24px; text-align:center; }
+.site-shell { min-height:100vh; }.site-nav { align-items:center; background:#fff; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; padding:18px max(28px,calc((100vw - 1180px)/2)); }
+.brand { align-items:center; display:flex; font:800 22px/1 "Manrope",sans-serif; gap:10px; letter-spacing:-.04em; }.brand-mark { align-items:center; background:linear-gradient(135deg,#7367f0,#4338ca); border-radius:10px; color:#fff; display:flex; font-weight:800; height:30px; justify-content:center; width:30px; }.brand small { color:#8992a4; font:600 10px/1 "DM Sans",sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+.nav-links { color:#586174; display:flex; font-size:13px; gap:25px; }.nav-actions { align-items:center; display:flex; gap:14px; }.secure-note { color:#7a8496; font-size:12px; }.avatar { align-items:center; background:#ede9fe; border-radius:50%; color:#5b43c9; display:flex; font-size:12px; font-weight:700; height:32px; justify-content:center; width:32px; }
+.shop-main { margin:0 auto; max-width:1180px; padding:34px 28px 58px; }.breadcrumbs { color:#7e8798; font-size:12px; margin:0 0 20px; }.product-layout { background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 15px 45px rgba(28,36,62,.06); display:grid; gap:40px; grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr); padding:32px; }.product-gallery { min-width:0; }
+.product-visual { align-items:center; background:radial-gradient(circle at 73% 20%,#c4b5fd 0 8%,transparent 9%),linear-gradient(145deg,#eef2ff,#dbeafe); border-radius:16px; display:flex; height:355px; justify-content:center; overflow:hidden; position:relative; }.visual-label { background:rgba(255,255,255,.76); border:1px solid rgba(255,255,255,.9); border-radius:20px; color:#5146ac; font-size:11px; font-weight:700; left:18px; padding:7px 11px; position:absolute; top:18px; }
+.headphone { background:linear-gradient(145deg,#202a43,#0e1527); border:13px solid #202a43; border-bottom:0; border-radius:190px 190px 0 0; height:205px; position:relative; width:285px; }.headphone:before,.headphone:after { background:linear-gradient(145deg,#344160,#111827); border:7px solid #0e1527; border-radius:42px; bottom:-38px; content:""; height:104px; position:absolute; width:76px; }.headphone:before { left:-18px; }.headphone:after { right:-18px; }.headphone-band { background:#10182b; border-radius:8px; bottom:-52px; height:14px; left:72px; position:absolute; transform:rotate(-8deg); width:155px; }.thumb-row { display:flex; gap:10px; margin-top:14px; }.thumb { background:#f2f4f8; border:1px solid var(--line); border-radius:9px; height:54px; width:54px; }.thumb.active { border:2px solid var(--brand); background:#eef2ff; }
+.product-copy h1 { font:800 30px/1.17 "Manrope",sans-serif; letter-spacing:-.045em; margin:8px 0; }.eyebrow { color:#5b50c8; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }.rating { color:#697386; font-size:13px; margin:12px 0 20px; }.rating strong { color:#ed9b00; font-size:16px; }.price-row { align-items:baseline; display:flex; gap:10px; margin:8px 0; }.list-price { color:#98a2b3; text-decoration:line-through; }.sale { color:#e5484d; font-weight:700; }.price { font:800 37px/1 "Manrope",sans-serif; letter-spacing:-.05em; }.finance { color:#687386; font-size:12px; margin:10px 0 23px; }.stock { align-items:center; color:#16815d; display:flex; font-size:13px; font-weight:700; gap:7px; margin-bottom:14px; }.stock-dot { background:#1faf75; border-radius:50%; height:8px; width:8px; }.urgency-badge { background:#fff8e8; border:1px solid #f8d58e; border-radius:11px; color:#805d12; font-size:13px; margin:16px 0; padding:11px 13px; }.urgency-badge strong { color:#be5f00; }
+.sneak-card { align-items:flex-start; border:1px solid #d9ddf8; border-radius:12px; display:flex; gap:11px; margin-top:12px; padding:13px; }.sneak-card.selected { background:#f5f4ff; border-color:#bcb6f3; }.sneak-card input { accent-color:var(--brand); height:19px; margin-top:2px; width:19px; }.sneak-card strong { display:block; font-size:13px; }.sneak-card span { color:#63708a; display:block; font-size:12px; margin-top:3px; }.sneak-card b { color:#4438c5; }.purchase-row { display:flex; gap:12px; margin-top:24px; }.qty { background:#fff; border:1px solid #cfd5e1; border-radius:9px; color:#445069; padding:0 10px; width:85px; }.primary-cta { background:linear-gradient(135deg,#5e56df,#3e34bb); border:0; border-radius:10px; box-shadow:0 8px 17px rgba(79,70,229,.25); color:#fff; cursor:pointer; flex:1; font-weight:800; padding:14px 17px; }.primary-cta:hover { background:#3931ae; }.delivery { color:#788398; font-size:12px; margin:14px 0 0; }
+.checkout-shell { margin:0 auto; max-width:1060px; padding:34px 28px 60px; }.checkout-progress { color:#788398; display:flex; font-size:12px; gap:32px; margin:0 0 22px; }.checkout-progress b { color:#4037b8; }.checkout-progress span { align-items:center; display:flex; gap:7px; }.step-dot { background:#deddf8; border-radius:50%; height:18px; text-align:center; width:18px; }.step-dot.active { background:#5146d5; color:#fff; }.checkout-grid { display:grid; gap:26px; grid-template-columns:1.1fr .9fr; }.checkout-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:25px; }.checkout-card h1 { font:800 24px "Manrope",sans-serif; letter-spacing:-.035em; margin:0 0 20px; }.cart-product { border-bottom:1px solid var(--line); display:flex; gap:16px; padding-bottom:20px; }.mini-product { background:linear-gradient(140deg,#e4e8ff,#e9f1fb); border-radius:10px; height:84px; position:relative; width:90px; }.mini-product:after { background:#1b2742; border-radius:18px 18px 5px 5px; content:""; height:45px; left:20px; position:absolute; top:18px; width:48px; }.cart-product strong { display:block; font-size:14px; }.cart-product span { color:#778196; display:block; font-size:12px; margin-top:4px; }.cart-product b { display:block; font-size:16px; margin-top:9px; }.deal-countdown-timer { background:linear-gradient(115deg,#7d1d48,#b0265a); border-radius:11px; color:#fff; font-size:13px; font-weight:700; margin:19px 0; padding:13px 14px; }.deal-countdown-timer span { font-size:18px; margin:0 4px; }.line-item { align-items:center; display:flex; font-size:13px; justify-content:space-between; padding:9px 0; }.line-item.muted { color:#6e7890; }.line-item.warning { color:#bd342f; font-weight:600; }.total-row { border-top:1px solid var(--line); display:flex; font:800 19px "Manrope",sans-serif; justify-content:space-between; margin-top:10px; padding-top:17px; }.total-row b { color:#b42318; font-size:25px; }.hidden-disclosure { background:#f6f7f9; border-radius:8px; margin-top:18px; padding:10px; }.hidden-disclosure p { color:#c4c4c4; font-size:9px; line-height:1.25; margin:0; }.payment-card { background:#191b2c; border:1px solid #292d45; border-radius:16px; color:#fff; padding:25px; }.payment-card h2 { font:700 18px "Manrope",sans-serif; margin:0 0 8px; }.payment-card p { color:#b9c0d1; font-size:13px; }.pay-button { background:#f4b63f; border:0; border-radius:9px; color:#28210c; cursor:pointer; font-weight:800; margin-top:16px; padding:14px; width:100%; }.subtle-link { color:#a1a9b8; display:block; font-size:11px; margin-top:15px; text-align:center; text-decoration:underline; }
+.gym-shell { background:linear-gradient(145deg,#101c32,#1b2f4e 55%,#182546); min-height:100vh; }.gym-nav { align-items:center; color:#fff; display:flex; justify-content:space-between; margin:0 auto; max-width:1160px; padding:24px 28px; }.gym-brand { font:800 23px "Manrope",sans-serif; letter-spacing:-.05em; }.gym-brand em { color:#63e6be; font-style:normal; }.gym-nav span { color:#bfcae0; font-size:13px; }.gym-hero { align-items:center; color:#fff; display:grid; gap:65px; grid-template-columns:1fr .85fr; margin:0 auto; max-width:1160px; min-height:calc(100vh - 80px); padding:30px 28px 75px; }.gym-hero h1 { font:800 52px/1.03 "Manrope",sans-serif; letter-spacing:-.06em; margin:12px 0 16px; }.gym-hero p { color:#bdc8db; font-size:17px; max-width:530px; }.gym-pill { background:rgba(99,230,190,.13); border:1px solid rgba(99,230,190,.35); border-radius:30px; color:#8cf0ce; display:inline-block; font-size:11px; font-weight:800; letter-spacing:.1em; padding:7px 11px; text-transform:uppercase; }.trial-panel { background:#fff; border-radius:17px; box-shadow:0 22px 48px rgba(0,0,0,.25); color:#17233b; padding:30px; }.trial-panel h2 { font:800 25px "Manrope",sans-serif; letter-spacing:-.04em; margin:0; }.trial-panel p { color:#69748a; font-size:13px; margin:7px 0 21px; }.trial-list { border-bottom:1px solid var(--line); border-top:1px solid var(--line); color:#465269; font-size:13px; line-height:2.1; padding:13px 0; }.trial-cta { background:#1bb783; border:0; border-radius:9px; color:#062a21; display:block; font-weight:800; margin-top:22px; padding:14px; text-align:center; }.tiny-note { color:#9aa4b5; font-size:10px; margin-top:10px; text-align:center; }
+.gym-dashboard { background:#f4f6fa; min-height:100vh; }.dash-layout { display:grid; grid-template-columns:215px 1fr; min-height:100vh; }.dash-side { background:#121e34; color:#bdc8d9; padding:25px 18px; }.dash-side .gym-brand { color:#fff; margin:0 9px 36px; }.side-label { color:#687692; font-size:10px; font-weight:700; letter-spacing:.12em; margin:18px 9px 8px; text-transform:uppercase; }.side-item { border-radius:8px; margin:4px 0; padding:10px; }.side-item.active { background:#243552; color:#fff; }.dash-content { padding:31px 42px; }.dash-top { align-items:center; display:flex; justify-content:space-between; }.dash-top h1 { font:800 25px "Manrope",sans-serif; letter-spacing:-.04em; margin:0; }.plan-chip { background:#ddf8ed; border-radius:18px; color:#137050; font-size:12px; font-weight:700; padding:7px 11px; }.metric-grid { display:grid; gap:17px; grid-template-columns:repeat(3,1fr); margin-top:27px; }.metric { background:#fff; border:1px solid var(--line); border-radius:13px; padding:18px; }.metric span { color:#7b8598; font-size:12px; }.metric b { display:block; font:800 25px "Manrope",sans-serif; margin-top:7px; }.workout-card { background:#fff; border:1px solid var(--line); border-radius:13px; margin-top:18px; padding:23px; }.workout-card h2 { font:700 17px "Manrope",sans-serif; margin:0; }.workout-row { align-items:center; border-top:1px solid var(--line); display:flex; justify-content:space-between; margin-top:15px; padding-top:15px; }.cancel-link { color:#9da6b7; display:block; font-size:11px; margin-top:54px; text-align:center; text-decoration:underline; }
+.cancel-page { background:linear-gradient(135deg,#f7f8fc,#eef1f6); min-height:100vh; padding:45px 22px; }.cancel-frame { background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 18px 42px rgba(27,39,70,.08); margin:0 auto; max-width:625px; overflow:hidden; }.cancel-header { align-items:center; background:#16243c; color:#fff; display:flex; justify-content:space-between; padding:18px 25px; }.cancel-header .gym-brand { font-size:18px; }.cancel-progress { color:#bbc8dd; font-size:11px; }.cancel-progress b { color:#fff; }.cancel-body { padding:32px; }.flow-step { color:#c43d44; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }.cancel-body h1 { font:800 29px/1.15 "Manrope",sans-serif; letter-spacing:-.045em; margin:10px 0 12px; }.cancel-body > p { color:#637087; font-size:14px; }.risk-card { background:#fff8e7; border:1px solid #f5d58f; border-radius:10px; color:#825c10; font-size:12px; margin:23px 0; padding:13px; }.retention-card { background:linear-gradient(135deg,#e6fbf3,#effcf7); border:1px solid #9de2c7; border-radius:12px; margin:22px 0; padding:20px; text-align:center; }.retention-card b { color:#0d875f; display:block; font:800 29px "Manrope",sans-serif; }.retention-card span { color:#48816d; font-size:12px; }.form-card { background:#f7f8fb; border:1px solid var(--line); border-radius:11px; margin:21px 0; padding:15px; }.form-card label { color:#46536b; font-size:12px; font-weight:700; }.form-card select { background:#fff; border:1px solid #cdd4e0; border-radius:7px; color:#48566e; margin-top:8px; padding:10px; width:100%; }.action-stack { display:grid; gap:11px; margin-top:24px; }.keep-button { background:#4d46ce; border-radius:9px; color:#fff; font-weight:800; padding:14px; text-align:center; }.keep-button.green { background:#16a875; }.decline-offer { color:#9aa3b2; font-size:11px; padding:5px; text-align:center; text-decoration:underline; }.support-card { background:#f7f8fb; border:1px solid var(--line); border-radius:11px; margin:22px 0; padding:18px; text-align:center; }.support-card b { color:#c6393e; display:block; font:800 25px "Manrope",sans-serif; }.support-card span { color:#8590a2; font-size:11px; }
+@media (max-width:760px) { .nav-links,.secure-note { display:none; }.site-nav { padding:16px 18px; }.shop-main,.checkout-shell { padding:22px 16px 40px; }.product-layout,.checkout-grid,.gym-hero { grid-template-columns:1fr; }.product-layout { gap:24px; padding:19px; }.product-visual { height:280px; }.product-copy h1,.gym-hero h1 { font-size:36px; }.gym-hero { gap:28px; min-height:auto; padding-top:35px; }.dash-layout { grid-template-columns:1fr; }.dash-side { display:none; }.dash-content { padding:25px 18px; }.metric-grid { grid-template-columns:1fr; }.checkout-progress { gap:12px; } }
