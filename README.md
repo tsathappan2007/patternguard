@@ -1,4 +1,4 @@
-<div align="center"><img src="logoo.webp"></div>
+<div align="center"><img src="pattern-guard-logo.svg" alt="Pattern Guard animated logo"></div>
 
 
 # Pattern Guard — Autonomous Dark Pattern Prosecution Platform

@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="400" viewBox="0 0 900 400" role="img" aria-labelledby="title description">
+  <title id="title">Pattern Guard animated logo</title>
+  <desc id="description">Animated keyboard keys spelling PATTERN on the first line and GUARD on the second.</desc>
+  <defs>
+    <linearGradient id="keyFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2b2f" />
+      <stop offset="1" stop-color="#111114" />
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000" flood-opacity=".8" />
+    </filter>
+    <filter id="blueGlow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feFlood flood-color="#168cff" flood-opacity=".9" />
+      <feComposite in2="blur" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <style>
+      .spawn {
+        transform-box: fill-box;
+        transform-origin: center;
+        opacity: 0;
+        animation: spawn .7s cubic-bezier(.175,.885,.32,1.275) forwards;
+      }
+      .key {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: press 2.5s ease-in-out infinite;
+      }
+      .face { filter: url(#shadow); }
+      .letter {
+        fill: #e4e4e7;
+        font: 900 34px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+      .burst {
+        fill: #fff;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: burst 3s ease-out infinite;
+      }
+      .k1, .k12 { animation-delay: .57s; }
+      .k2, .k11 { animation-delay: .50s; }
+      .k3, .k10 { animation-delay: .43s; }
+      .k4, .k9  { animation-delay: .36s; }
+      .k5, .k8  { animation-delay: .29s; }
+      .k6, .k7  { animation-delay: .22s; }
+      .k1 .key, .k12 .key { animation-delay: 1.52s; }
+      .k2 .key, .k11 .key { animation-delay: 1.40s; }
+      .k3 .key, .k10 .key { animation-delay: 1.28s; }
+      .k4 .key, .k9 .key  { animation-delay: 1.16s; }
+      .k5 .key, .k8 .key  { animation-delay: 1.04s; }
+      .k6 .key, .k7 .key  { animation-delay: .92s; }
+      @keyframes spawn {
+        0% { opacity: 0; transform: scale(0) rotate(-10deg); }
+        60% { opacity: 1; transform: scale(1.12) rotate(3deg); }
+        80% { transform: scale(.96) rotate(-1deg); }
+        100% { opacity: 1; transform: scale(1) rotate(0); }
+      }
+      @keyframes press {
+        0%, 100% { transform: translateY(0) scale(1); filter: none; }
+        15% { transform: translateY(5px) scale(.95); filter: url(#blueGlow); }
+        30% { transform: translateY(0) scale(1); filter: none; }
+      }
+      @keyframes burst {
+        0%, 82% { opacity: 0; transform: scale(.2) rotate(0); }
+        88% { opacity: .95; }
+        100% { opacity: 0; transform: scale(2.1) rotate(45deg); }
+      }
+    </style>
+    <g id="keycap">
+      <rect class="face" width="76" height="76" rx="19" fill="#09090b" stroke="#3f3f46" stroke-width="2" />
+      <rect x="8" y="7" width="60" height="55" rx="13" fill="url(#keyFace)" stroke="#52525b" />
+      <path d="M13 57h50" stroke="#050506" stroke-width="6" stroke-linecap="round" opacity=".9" />
+      <path d="M15 12h46" stroke="#fafafa" stroke-width="3" stroke-linecap="round" opacity=".55" />
+    </g>
+  </defs>
+
+  <rect width="900" height="400" fill="#08080a" rx="18" />
+  <g transform="translate(450 200)"><g class="burst">
+    <path d="M0-48 9-15 42-29 18 0 42 29 9 15 0 48-9 15-42 29-18 0-42-29-9-15Z" />
+  </g></g>
+
+  <g transform="translate(134 86)"><g class="spawn k1"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">P</text></g></g></g>
+  <g transform="translate(220 86)"><g class="spawn k2"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">A</text></g></g></g>
+  <g transform="translate(306 86)"><g class="spawn k3"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">T</text></g></g></g>
+  <g transform="translate(392 86)"><g class="spawn k4"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">T</text></g></g></g>
+  <g transform="translate(478 86)"><g class="spawn k5"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">E</text></g></g></g>
+  <g transform="translate(564 86)"><g class="spawn k6"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">R</text></g></g></g>
+  <g transform="translate(650 86)"><g class="spawn k7"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">N</text></g></g></g>
+
+  <g transform="translate(220 218)"><g class="spawn k8"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">G</text></g></g></g>
+  <g transform="translate(306 218)"><g class="spawn k9"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">U</text></g></g></g>
+  <g transform="translate(392 218)"><g class="spawn k10"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">A</text></g></g></g>
+  <g transform="translate(478 218)"><g class="spawn k11"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">R</text></g></g></g>
+  <g transform="translate(564 218)"><g class="spawn k12"><g class="key"><use href="#keycap"/><text class="letter" x="38" y="35">D</text></g></g></g>
+</svg>
