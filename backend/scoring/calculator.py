@@ -23,24 +23,42 @@ def calculate_manipulation_index(findings: List[Dict[str, Any]], flow_context: D
     
     category_counts = {}
     
+    seen = set()
+    unique_findings = []
     for f in findings:
+        fingerprint = (
+            str(f.get("category", "")).strip().lower(),
+            str(f.get("pattern_name", "")).strip().lower(),
+            str(f.get("element_text", "")).strip().lower()[:160],
+            f.get("step_number"),
+        )
+        if fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        unique_findings.append(f)
+
+    for f in unique_findings:
         severity = f.get("severity", "Medium")
         category = f.get("category", "General")
         
         category_counts[category] = category_counts.get(category, 0) + 1
         
+        configured_impact = f.get("score_impact")
+        try:
+            impact = float(configured_impact)
+        except (TypeError, ValueError):
+            impact = SEVERITY_WEIGHTS.get(severity, SEVERITY_WEIGHTS["Medium"])
+        impact = min(35.0, max(0.0, impact))
+
         if severity == "Critical":
             critical_count += 1
-            base_score += SEVERITY_WEIGHTS["Critical"]
         elif severity == "High":
             high_count += 1
-            base_score += SEVERITY_WEIGHTS["High"]
         elif severity == "Medium":
             medium_count += 1
-            base_score += SEVERITY_WEIGHTS["Medium"]
         else:
             low_count += 1
-            base_score += SEVERITY_WEIGHTS["Low"]
+        base_score += impact
 
     # Friction / Multiplier bonus
     asymmetry_ratio = flow_context.get("asymmetry_ratio", 1.0)
@@ -77,7 +95,8 @@ def calculate_manipulation_index(findings: List[Dict[str, Any]], flow_context: D
         "high_count": high_count,
         "medium_count": medium_count,
         "low_count": low_count,
-        "total_findings": len(findings),
+        "total_findings": len(unique_findings),
+        "duplicates_removed": len(findings) - len(unique_findings),
         "category_distribution": category_counts
     }
 

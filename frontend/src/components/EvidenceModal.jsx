@@ -174,7 +174,7 @@ export default function EvidenceModal({ scanData, onClose, onOpenRegulatoryDossi
 
                 <div className="pt-3 border-t border-[#1e1e1e] flex items-center justify-between text-[10px] font-mono text-[#7c7c7c]">
                   <span>RECORD ID: {currentFinding.id || 'N/A'}</span>
-                  <span className="text-[#51cf66]">99.4% CONFIDENCE</span>
+                  <span className="text-[#a7a7a7]">HEURISTIC RESULT · REVIEW RECOMMENDED</span>
                 </div>
               </div>
             ) : (

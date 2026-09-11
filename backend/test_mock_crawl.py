@@ -1,14 +1,22 @@
 import asyncio
+import os
+import pytest
 from backend.agent.flow_crawler import AutonomousFlowCrawler
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("PATTERN_GUARD_RUN_BROWSER_TESTS") != "1",
+    reason="set PATTERN_GUARD_RUN_BROWSER_TESTS=1 with the local server running"
+)
 
 async def test_crawler_mock():
     crawler = AutonomousFlowCrawler()
+    base_url = os.getenv("PATTERN_GUARD_TEST_BASE_URL", "http://127.0.0.1:8000")
     
     print("=== TEST 1: GymTrap Cancellation Flow ===")
     res_gym = await crawler.run_scan(
-        target_url="http://127.0.0.1:8000/mock/gymtrap",
+        target_url=f"{base_url}/mock/gymtrap",
         flow_type="cancellation",
-        max_steps=4
+        max_steps=6
     )
     print(f"GymTrap Total Nodes Traversed: {res_gym['total_steps']}")
     print(f"GymTrap Manipulation Score: {res_gym['score_summary']['manipulation_index']}/100")
@@ -17,7 +25,7 @@ async def test_crawler_mock():
 
     print("\n=== TEST 2: ShopSneak Checkout Flow ===")
     res_shop = await crawler.run_scan(
-        target_url="http://127.0.0.1:8000/mock/shopsneak",
+        target_url=f"{base_url}/mock/shopsneak",
         flow_type="checkout",
         max_steps=4
     )

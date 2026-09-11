@@ -2,15 +2,21 @@ import React, { useState } from 'react';
 import { X, Sparkles, Check, Globe, Shield, Zap } from 'lucide-react';
 
 export default function ApiKeyModal({ onClose, onSaved }) {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('houdini_ai_key') || '');
-  const [brightDataUrl, setBrightDataUrl] = useState(() => localStorage.getItem('houdini_brightdata_url') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('pattern_guard_ai_key') || '');
+  const [brightDataUrl, setBrightDataUrl] = useState(() => localStorage.getItem('pattern_guard_brightdata_url') || '');
+  const [aiEndpoint, setAiEndpoint] = useState(() => localStorage.getItem('pattern_guard_ai_endpoint') || '');
+  const [aiModel, setAiModel] = useState(() => localStorage.getItem('pattern_guard_ai_model') || '');
+  const [scanToken, setScanToken] = useState(() => localStorage.getItem('pattern_guard_scan_token') || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSave = () => {
-    localStorage.setItem('houdini_ai_key', apiKey.trim());
-    localStorage.setItem('houdini_brightdata_url', brightDataUrl.trim());
+    localStorage.setItem('pattern_guard_ai_key', apiKey.trim());
+    localStorage.setItem('pattern_guard_brightdata_url', brightDataUrl.trim());
+    localStorage.setItem('pattern_guard_ai_endpoint', aiEndpoint.trim());
+    localStorage.setItem('pattern_guard_ai_model', aiModel.trim());
+    localStorage.setItem('pattern_guard_scan_token', scanToken.trim());
     setSavedSuccess(true);
-    if (onSaved) onSaved({ apiKey: apiKey.trim(), brightDataUrl: brightDataUrl.trim() });
+    if (onSaved) onSaved({ apiKey: apiKey.trim(), brightDataUrl: brightDataUrl.trim(), aiEndpoint: aiEndpoint.trim(), aiModel: aiModel.trim(), scanToken: scanToken.trim() });
     setTimeout(() => {
       onClose();
     }, 600);
@@ -19,10 +25,16 @@ export default function ApiKeyModal({ onClose, onSaved }) {
   const handleClear = () => {
     setApiKey('');
     setBrightDataUrl('');
-    localStorage.removeItem('houdini_ai_key');
-    localStorage.removeItem('houdini_brightdata_url');
+    setAiEndpoint('');
+    setAiModel('');
+    setScanToken('');
+    localStorage.removeItem('pattern_guard_ai_key');
+    localStorage.removeItem('pattern_guard_brightdata_url');
+    localStorage.removeItem('pattern_guard_ai_endpoint');
+    localStorage.removeItem('pattern_guard_ai_model');
+    localStorage.removeItem('pattern_guard_scan_token');
     setSavedSuccess(true);
-    if (onSaved) onSaved({ apiKey: '', brightDataUrl: '' });
+    if (onSaved) onSaved({ apiKey: '', brightDataUrl: '', aiEndpoint: '', aiModel: '' });
     setTimeout(() => {
       onClose();
     }, 500);
@@ -53,6 +65,19 @@ export default function ApiKeyModal({ onClose, onSaved }) {
 
         {/* Body */}
         <div className="p-6 space-y-5 text-[13px] overflow-y-auto max-h-[70vh]">
+          <div className="space-y-2 p-4 rounded-[6px] bg-[#0a0a0a] border border-[#1e1e1e]">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#51cf66]" />
+              <span className="font-medium text-white text-[13px]">Server Scan Access</span>
+            </div>
+            <input
+              type="password"
+              placeholder="Optional X-Pattern-Guard-Token"
+              value={scanToken}
+              onChange={(e) => setScanToken(e.target.value)}
+              className="w-full bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-2 text-[12px] text-white placeholder:text-[#555] focus:outline-none focus:border-[#6798ff] font-mono"
+            />
+          </div>
           
           {/* Bright Data Section */}
           <div className="space-y-2.5 p-4 rounded-[6px] bg-[#0a0a0a] border border-[#1e1e1e]">
@@ -72,7 +97,7 @@ export default function ApiKeyModal({ onClose, onSaved }) {
 
             <div className="space-y-1 pt-1">
               <label className="block text-[11px] font-mono uppercase text-[#7c7c7c]">
-                Scraping Browser WebSocket URL or Proxy
+                Scraping Browser WebSocket URL
               </label>
               <input
                 type="password"
@@ -82,7 +107,6 @@ export default function ApiKeyModal({ onClose, onSaved }) {
                 className="w-full bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-2 text-[12px] text-white placeholder:text-[#555] focus:outline-none focus:border-[#6798ff] font-mono"
               />
             </div>
-
             <div className="flex items-start gap-2 pt-1 text-[11px] text-[#51cf66]">
               <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>
@@ -113,6 +137,28 @@ export default function ApiKeyModal({ onClose, onSaved }) {
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-2 text-[12px] text-white placeholder:text-[#555] focus:outline-none focus:border-[#6798ff] font-mono"
               />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-[#7c7c7c] mb-1">Custom API Base URL</label>
+                <input
+                  type="url"
+                  placeholder="https://api.example.com/v1"
+                  value={aiEndpoint}
+                  onChange={(e) => setAiEndpoint(e.target.value)}
+                  className="w-full bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-2 text-[11px] text-white placeholder:text-[#555] focus:outline-none focus:border-[#6798ff] font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-[#7c7c7c] mb-1">Model Override</label>
+                <input
+                  type="text"
+                  placeholder="model-id"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  className="w-full bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-2 text-[11px] text-white placeholder:text-[#555] focus:outline-none focus:border-[#6798ff] font-mono"
+                />
+              </div>
             </div>
           </div>
 

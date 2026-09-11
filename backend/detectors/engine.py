@@ -62,11 +62,15 @@ class DarkPatternEngine:
             elem.get("text", "") for elem in step_data.get("buttons", [])
         ] + [step_data.get("page_text", "")]
         
-        ai_findings = self.ai_analyzer.analyze_text_corpus(
-            text_corpus,
-            api_key=api_key
-        )
+        # Semantic provider inference is performed once by the crawler. This layer
+        # remains deterministic so a configured key cannot cause duplicate calls.
+        ai_findings = self.ai_analyzer.analyze_text_corpus(text_corpus, allow_external=False)
         for af in ai_findings:
+            pattern_lower = af.get("pattern", "").lower()
+            if "confirmshaming" in pattern_lower and any(f["category"] == "Confirmshaming" for f in findings):
+                continue
+            if "scarcity" in pattern_lower and any(f["category"] == "Urgency" for f in findings):
+                continue
             findings.append({
                 "id": f"find_{uuid.uuid4().hex[:10]}",
                 "category": "Psychological Coercion",

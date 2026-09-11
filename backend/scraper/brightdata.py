@@ -13,13 +13,20 @@ class BrightDataManager:
     - Live external targets: Routes through Bright Data Scraping Browser (CDP)
       to bypass Cloudflare, CAPTCHAs, and anti-bot obstacles.
     """
-    def __init__(self):
-        self.wss_url = os.getenv("BRIGHT_DATA_WSS_URL", "").strip()
+    def __init__(self, wss_url: Optional[str] = None):
+        self.wss_url = (wss_url or os.getenv("BRIGHT_DATA_WSS_URL", "")).strip()
         self.proxy_url = os.getenv("BRIGHT_DATA_PROXY_URL", "").strip()
         self.customer_id = os.getenv("BRIGHT_DATA_CUSTOMER_ID", "").strip()
         self.zone_name = os.getenv("BRIGHT_DATA_ZONE_NAME", "scraping_browser").strip()
         self.password = os.getenv("BRIGHT_DATA_PASSWORD", "").strip()
         self.enabled = os.getenv("BRIGHT_DATA_ENABLED", "true").lower() in ["true", "1", "yes"]
+
+        if self.wss_url:
+            parsed = urllib.parse.urlparse(self.wss_url)
+            host = (parsed.hostname or "").lower()
+            valid_host = host == "brd.superproxy.io" or host.endswith(".brd.superproxy.io")
+            if parsed.scheme not in {"ws", "wss"} or not valid_host:
+                raise ValueError("Bright Data browser URL must use ws/wss on brd.superproxy.io")
 
     def is_configured(self) -> bool:
         if not self.enabled:

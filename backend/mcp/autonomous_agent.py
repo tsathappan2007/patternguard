@@ -58,7 +58,7 @@ class AutonomousMCPAgent:
         }
 
         system_prompt = (
-            "You are Houdini AI, a consumer protection forensic auditor. "
+            "You are Pattern Guard AI, a consumer protection forensic auditor. "
             "Analyze the website DOM state for manipulative UX (dark patterns, sneaked add-ons, drip fees, confirmshaming, roach motel). "
             "Respond in JSON format with two keys:\n"
             "1. 'thought': your brief reasoning.\n"

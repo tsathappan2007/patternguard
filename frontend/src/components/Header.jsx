@@ -11,7 +11,7 @@ export default function Header({
   onOpenApiKeyModal, 
   scanCount = 0 
 }) {
-  const hasKey = !!localStorage.getItem('houdini_ai_key');
+  const hasKey = !!localStorage.getItem('pattern_guard_ai_key');
 
   return (
     <header className="w-full bg-[#0a0a0a]/90 backdrop-blur-md border-b border-[#1e1e1e] sticky top-0 z-40 font-sans">
@@ -23,7 +23,7 @@ export default function Header({
             className="flex items-center gap-2.5 cursor-pointer"
             onClick={() => setActiveTab('home')}
           >
-            HOUDINI
+            PATTERN GUARD
           </div>
 
           {/* Navigation Links */}

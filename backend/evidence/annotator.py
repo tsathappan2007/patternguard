@@ -1,9 +1,12 @@
 import os
 import uuid
 from typing import List, Dict, Any, Optional
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+STATIC_DIR = os.getenv(
+    "PATTERN_GUARD_STATIC_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+)
 EVIDENCE_DIR = os.path.join(STATIC_DIR, "evidence")
 os.makedirs(EVIDENCE_DIR, exist_ok=True)
 
@@ -33,7 +36,7 @@ def annotate_screenshot(
         img = Image.new("RGB", (1280, 800), color=(255, 255, 255))
         draw = ImageDraw.Draw(img)
         draw.rectangle([(0, 0), (1280, 70)], fill=(0, 0, 0))
-        draw.text((20, 25), "HOUDINI AUTOMATED PROSECUTION AUDIT", fill=(255, 255, 255))
+        draw.text((20, 25), "PATTERN GUARD AUTOMATED PROSECUTION AUDIT", fill=(255, 255, 255))
     else:
         try:
             img = Image.open(image_path).convert("RGBA")
@@ -45,7 +48,7 @@ def annotate_screenshot(
     
     # Draw header bar
     draw.rectangle([(0, 0), (img.width, 42)], fill=(9, 7, 7, 240))
-    draw.text((16, 12), "HOUDINI EVIDENCE CAPTURE // FORENSIC DOM & VISUAL PROOF", fill=(255, 255, 255, 255))
+    draw.text((16, 12), "PATTERN GUARD EVIDENCE CAPTURE // FORENSIC DOM & VISUAL PROOF", fill=(255, 255, 255, 255))
     
     # Annotate each finding with bounding boxes and badges
     for i, f in enumerate(findings):

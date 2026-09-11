@@ -71,7 +71,7 @@ export default function SandboxSimulator({ onClose, onLaunchAudit }) {
                     onClick={() => onLaunchAudit('http://127.0.0.1:8000/mock/shopsneak', 'ShopSneak Store', 'checkout')}
                     className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1 cursor-pointer"
                   >
-                    <span>Audit with Houdini →</span>
+                    <span>Audit with Pattern Guard →</span>
                   </button>
                 </div>
               </div>
@@ -110,7 +110,7 @@ export default function SandboxSimulator({ onClose, onLaunchAudit }) {
                     onClick={() => onLaunchAudit('http://127.0.0.1:8000/mock/gymtrap', 'GymTrap Elite SaaS', 'cancellation')}
                     className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1 cursor-pointer"
                   >
-                    <span>Audit with Houdini →</span>
+                    <span>Audit with Pattern Guard →</span>
                   </button>
                 </div>
               </div>

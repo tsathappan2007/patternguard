@@ -2,13 +2,18 @@ import React from 'react';
 
 export default function LogoComponent({ size = 'md', glowingAura = false }) {
   const letters = [
-    { char: 'H' },
-    { char: 'O' },
-    { char: 'U' },
-    { char: 'D' },
-    { char: 'I' },
+    { char: 'P' },
+    { char: 'A' },
+    { char: 'T' },
+    { char: 'T' },
+    { char: 'E' },
+    { char: 'R' },
     { char: 'N' },
-    { char: 'I' }
+    { char: 'G' },
+    { char: 'U' },
+    { char: 'A' },
+    { char: 'R' },
+    { char: 'D' }
   ];
 
   const centerIndex = Math.floor(letters.length / 2);
@@ -156,7 +161,7 @@ export default function LogoComponent({ size = 'md', glowingAura = false }) {
         }
       `}</style>
 
-      <div className="relative flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4 select-none pt-6 pb-2 overflow-visible">
+      <div aria-label="Pattern Guard" className="relative flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4 select-none pt-6 pb-2 overflow-visible">
         
         {/* Central Manga Impact Star & Monochrome Aura */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
@@ -177,15 +182,16 @@ export default function LogoComponent({ size = 'md', glowingAura = false }) {
           const loopDelay = distanceFromCenter * 0.12;
 
           return (
-            <div 
-              key={index} 
-              className="relative flex items-center justify-center cursor-pointer animate-spawn"
-              style={{ animationDelay: `${spawnDelay}s` }}
-            >
-              <div 
-                className="relative flex items-center justify-center animate-keycap"
-                style={{ animationDelay: `${0.8 + loopDelay}s` }}
+            <React.Fragment key={index}>
+              {index === 7 && <div className="basis-full h-0" aria-hidden="true" />}
+              <div
+                className="relative flex items-center justify-center cursor-pointer animate-spawn"
+                style={{ animationDelay: `${spawnDelay}s` }}
               >
+                <div
+                  className="relative flex items-center justify-center animate-keycap"
+                  style={{ animationDelay: `${0.8 + loopDelay}s` }}
+                >
                 {/* Clean Cyber Blue Glowing Aura Layer Behind Keycap */}
                 {glowingAura && (
                   <div 
@@ -206,8 +212,9 @@ export default function LogoComponent({ size = 'md', glowingAura = false }) {
                   </div>
                 </div>
 
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
       </div>

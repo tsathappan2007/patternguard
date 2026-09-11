@@ -7,6 +7,7 @@ import {
 
 export default function FlowStudio({ 
   initialScanData, 
+  initialParams,
   onScanComplete, 
   onOpenApiKeyModal,
   onOpenDossier 
@@ -27,10 +28,11 @@ export default function FlowStudio({
   const [scanResult, setScanResult] = useState(initialScanData || null);
 
   const logsEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const presets = [
-    { name: "ShopSneak Checkout", url: "http://127.0.0.1:8000/mock/shopsneak", flow: "checkout" },
-    { name: "GymTrap Cancellation Maze", url: "http://127.0.0.1:8000/mock/gymtrap", flow: "cancellation" },
+    { name: "ShopSneak Checkout", url: "http://127.0.0.1:8000/mock/shopsneak", flow: "checkout", steps: 4 },
+    { name: "GymTrap Cancellation Maze", url: "http://127.0.0.1:8000/mock/gymtrap", flow: "cancellation", steps: 6 },
     { name: "McAfee AntiVirus Direct", url: "https://www.mcafee.com", flow: "checkout" },
     { name: "Hacker News (Clean Baseline)", url: "https://news.ycombinator.com", flow: "general" }
   ];
@@ -49,6 +51,17 @@ export default function FlowStudio({
     }
   }, [initialScanData]);
 
+  useEffect(() => {
+    if (initialParams && !isScanning) {
+      setTargetUrl(initialParams.url || '');
+      setSiteName(initialParams.name || 'Target Website');
+      setFlowType(initialParams.flow || 'checkout');
+      setMaxSteps(initialParams.flow === 'cancellation' ? 6 : 4);
+    }
+  }, [initialParams, isScanning]);
+
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
+
   const handleStartAudit = async () => {
     setIsScanning(true);
     setLogs([]);
@@ -56,7 +69,13 @@ export default function FlowStudio({
     setScanResult(null);
     setActiveNodeIndex(0);
 
-    const apiKey = localStorage.getItem('houdini_ai_key') || '';
+    const apiKey = localStorage.getItem('pattern_guard_ai_key') || '';
+    const aiEndpoint = localStorage.getItem('pattern_guard_ai_endpoint') || '';
+    const aiModel = localStorage.getItem('pattern_guard_ai_model') || '';
+    const brightDataUrl = localStorage.getItem('pattern_guard_brightdata_url') || '';
+    const scanToken = localStorage.getItem('pattern_guard_scan_token') || '';
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     const addLog = (msg) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
     addLog(`INITIATING AUTONOMOUS NAVIGATION HARNESS: ${targetUrl}`);
@@ -70,15 +89,28 @@ export default function FlowStudio({
     try {
       const response = await fetch('/api/scan/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(scanToken.trim() ? { 'X-Pattern-Guard-Token': scanToken.trim() } : {})
+        },
         body: JSON.stringify({
           target_url: targetUrl,
           site_name: siteName,
           flow_type: flowType,
           max_steps: Number(maxSteps),
-          ai_api_key: apiKey.trim() || undefined
+          ai_api_key: apiKey.trim() || undefined,
+          ai_endpoint: aiEndpoint.trim() || undefined,
+          ai_model: aiModel.trim() || undefined,
+          bright_data_wss_url: brightDataUrl.trim() || undefined
         })
       });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Scan request failed (${response.status}): ${message.slice(0, 300)}`);
+      }
+      if (!response.body) throw new Error('Streaming response body is unavailable.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
@@ -113,6 +145,8 @@ export default function FlowStudio({
                 if (onScanComplete) {
                   onScanComplete(data);
                 }
+              } else if (data.event === 'error') {
+                addLog(`[ERROR]: ${data.message}`);
               } else if (data.event === 'stream_end') {
                 break;
               }
@@ -123,8 +157,9 @@ export default function FlowStudio({
         }
       }
     } catch (err) {
-      addLog(`HARNESS ERROR: ${err.message}`);
+      if (err.name !== 'AbortError') addLog(`HARNESS ERROR: ${err.message}`);
     } finally {
+      abortControllerRef.current = null;
       setIsScanning(false);
     }
   };
@@ -237,6 +272,7 @@ export default function FlowStudio({
                   setTargetUrl(p.url);
                   setSiteName(p.name);
                   setFlowType(p.flow);
+                  setMaxSteps(p.steps || 4);
                 }}
                 disabled={isScanning}
                 className="px-2.5 py-0.5 rounded-[4px] bg-[#0a0a0a] hover:bg-[#1e1e1e] border border-[#1e1e1e] text-[#a7a7a7] hover:text-white transition-colors cursor-pointer"

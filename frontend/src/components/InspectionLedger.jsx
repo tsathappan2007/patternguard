@@ -43,7 +43,7 @@ export default function InspectionLedger({ scanHistory, onSelectScan, onClearHis
               Compliance Observatory & Audit Ledger
             </h1>
             <p className="text-[14px] text-[#a7a7a7] mt-1">
-              Locally stored audit trail of analyzed funnels, deception scores, and statutory evidence.
+              Persisted audit trail with a local offline cache of funnel evidence and heuristic risk scores.
             </p>
           </div>
 
@@ -64,7 +64,7 @@ export default function InspectionLedger({ scanHistory, onSelectScan, onClearHis
               <button
                 onClick={onClearHistory}
                 className="p-2 rounded-[6px] bg-[#141414] hover:bg-[#1e1e1e] border border-[#1e1e1e] text-[#7c7c7c] hover:text-[#ff6b6b] transition-colors cursor-pointer"
-                title="Clear local audit history"
+                title="Clear the browser cache and hide loaded history for this session"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

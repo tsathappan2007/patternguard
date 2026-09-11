@@ -1,32 +1,32 @@
 <div align="center"><img src="logoo.webp"></div>
 
 
-# Houdini — Autonomous Dark Pattern Prosecution Platform
+# Pattern Guard — Autonomous Dark Pattern Prosecution Platform
 
 > **"We don't just detect dark patterns. We prosecute them."**
 
-Houdini is an autonomous agent that navigates real e-commerce and SaaS funnels (signup, checkout, cancellation, cookie consent walls), detects manipulative UX in real-time, captures forensic DOM proofs and annotated screenshots, and computes a regulatory **Manipulation Index** (0–100) per site. It outputs an editorial **"Hall of Shame"** leaderboard and comprehensive evidence drill-downs citing FTC and EU Digital Services Act violations.
+Pattern Guard is an autonomous agent that navigates real e-commerce and SaaS funnels (signup, checkout, cancellation, cookie consent walls), detects manipulative UX in real-time, captures forensic DOM proofs and annotated screenshots, and computes a regulatory **Manipulation Index** (0–100) per site. It outputs an editorial **"Hall of Shame"** leaderboard and comprehensive evidence drill-downs citing FTC and EU Digital Services Act violations.
 
 ---
 
 ## ⚡ Multi-Model Flexibility: Local Python or Any API Key
 
-Houdini gives users total choice between running **100% free / local** or attaching **any LLM API key** for enhanced precision:
+Pattern Guard gives users total choice between running **100% free / local** or attaching **any LLM API key** for enhanced precision:
 
 | Engine / Mode | API Key Required? | Cost | Description |
 |---|---|---|---|
-| ⚡ **Local Python Engine (Default)** | **None** | **100% Free** | Fast deterministic rule-based DOM parsing, WCAG 2.1 contrast math, price drift tracking, and local regex heuristics. Zero external dependencies. |
+| ⚡ **Local Python Engine (Default)** | **None** | **No inference fees** | Deterministic DOM parsing, WCAG contrast math, price drift tracking, and local regex heuristics. |
 | 🧠 **xAI / Grok** | `xai-...` | Optional | Advanced psychological coercion analysis via `grok-beta` / `grok-2`. |
 | 🤖 **OpenAI** | `sk-...` | Optional | Detailed cognitive bias analysis via `gpt-4o-mini` / `gpt-4o`. |
 | ⚙️ **Custom LLMs / Ollama / DeepSeek** | Any | Optional | Custom OpenAI-compatible endpoint support (e.g. `http://localhost:11434/v1` or `https://api.deepseek.com/v1`). |
 
-*Keys can be configured directly inside the UI (saved locally in your browser) or passed as environment variables (`GROK_API_KEY`, `OPENAI_API_KEY`).*
+*Keys and optional OpenAI-compatible endpoint/model overrides can be configured in the UI (saved locally in your browser) or passed as server environment variables (`GROQ_API_KEY`, `GROK_API_KEY`, `OPENAI_API_KEY`). Treat browser-stored keys as development convenience; use server-side secrets for shared deployments.*
 
 ---
 
 ## 🚢 Single-Command Cloud & Container Hosting
 
-Houdini is packaged as a complete full-stack single-port container containing Node.js, Python 3.11, Playwright Headless Chromium, FastAPI, and the compiled React UI.
+Pattern Guard is packaged as a complete full-stack single-port container containing Node.js, Python 3.11, Playwright Headless Chromium, FastAPI, and the compiled React UI.
 
 ### Option 1: Docker / Docker Compose (Deploy Anywhere)
 ```bash
@@ -43,8 +43,8 @@ Open **`http://localhost:8000`**.
 ### Option 3: Railway / Fly.io / VPS
 ```bash
 # Build and run with standard Docker
-docker build -t houdini .
-docker run -p 8000:8000 -e PORT=8000 houdini
+docker build -t pattern-guard .
+docker run -p 8000:8000 -e PORT=8000 pattern-guard
 ```
 
 ---
@@ -53,6 +53,12 @@ docker run -p 8000:8000 -e PORT=8000 houdini
 
 ### Single Port (Fullstack Mode)
 ```bash
+# Build the frontend once before starting the single-port server
+cd frontend
+npm ci
+npm run build
+cd ..
+
 # Start FastAPI backend (serves both API and compiled React UI on port 8000)
 python -m uvicorn backend.main:app --port 8000 --reload
 ```
@@ -97,10 +103,15 @@ Open **`http://localhost:5173`**.
 
 ---
 
-## 🎨 Editorial Design: Tech Barcelona Theme Compliance
+## 🎨 Editorial Design
 
-The user interface strictly implements the **Tech Barcelona Editorial Style Guide**:
-- **Monochromatic Canvas**: Pure White (`#ffffff`), Ink Black (`#090707`), Graphite (`#212529`), and Hairline Gray (`#cccccc`).
-- **Single Chromatic Accent**: Cobalt Action (`#0075ff`) reserved exclusively for primary action buttons (`Audit Target Flow`).
-- **Typographic Cadence**: Single font family at weight 400 throughout, using scale jumps (`80px` display $\to$ `50px` heading $\to$ `14px` body $\to$ `10px` caption) and tight display tracking (`-3.6px`).
-- **0px Border Radius**: Crisp, squared-off geometric elements with 1px hairline dividers and flat layout (no drop-shadows).
+The interface uses a dark editorial dashboard, compact forensic typography, restrained blue accents, and high-density evidence views.
+
+---
+
+## Security and interpretation notes
+
+- Public scan targets must resolve to globally routable addresses. Loopback access is limited to Pattern Guard's built-in `/mock` routes.
+- Scan concurrency and step counts are bounded. Configure `MAX_CONCURRENT_SCANS` and `CORS_ALLOWED_ORIGINS` for your deployment.
+- Bright Data URLs supplied through the UI are restricted to `brd.superproxy.io` WebSocket endpoints.
+- Results are automated evidence leads, not legal determinations. Verify findings and citations with qualified reviewers before enforcement or publication.

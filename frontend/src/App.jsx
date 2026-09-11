@@ -1,21 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from './components/Header';
 import HeroBand from './components/HeroBand';
 import FlowStudio from './components/FlowStudio';
 import InspectionLedger from './components/InspectionLedger';
 import EvidenceModal from './components/EvidenceModal';
-import LiveScanTerminal from './components/LiveScanTerminal';
 import SandboxSimulator from './components/SandboxSimulator';
 import DarkPatternGuide from './components/DarkPatternGuide';
 import RegulatoryReportModal from './components/RegulatoryReportModal';
 import ApiKeyModal from './components/ApiKeyModal';
 
-const STORAGE_KEY = 'houdini_scan_history';
+const STORAGE_KEY = 'pattern_guard_scan_history';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'studio' | 'registry'
   
-  // Pure local storage history (zero database reliance)
+  // Local cache, hydrated from the server's persisted scan registry when available.
   const [scanHistory, setScanHistory] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -27,7 +26,6 @@ export default function App() {
 
   const [selectedScanData, setSelectedScanData] = useState(null);
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isDossierOpen, setIsDossierOpen] = useState(false);
@@ -40,11 +38,30 @@ export default function App() {
     flow: 'checkout'
   });
 
-  // Save to local storage whenever history changes
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/scans?limit=50', { signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
+      .then(data => {
+        if (!Array.isArray(data.scans)) return;
+        setScanHistory(previous => {
+          const merged = [...data.scans, ...previous];
+          return merged.filter((item, index) =>
+            merged.findIndex(candidate => candidate.scan_id === item.scan_id) === index
+          );
+        });
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError') console.warn('Using local audit history:', error.message);
+      });
+    return () => controller.abort();
+  }, []);
+
+  // Cache completed scans locally so the registry remains useful while offline.
   const saveScanToLocalStorage = (newScanResult) => {
     setScanHistory(prev => {
-      const filtered = prev.filter(item => item.domain !== newScanResult.domain);
-      const updated = [newScanResult, ...filtered];
+      const filtered = prev.filter(item => item.scan_id !== newScanResult.scan_id);
+      const updated = [newScanResult, ...filtered].slice(0, 50);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch (err) {
@@ -76,6 +93,7 @@ export default function App() {
 
   const handleQuickScan = (url, name, flow) => {
     setScannerParams({ url, name, flow });
+    setSelectedScanData(null);
     setActiveTab('studio');
   };
 
@@ -105,6 +123,7 @@ export default function App() {
         {activeTab === 'studio' && (
           <FlowStudio
             initialScanData={selectedScanData}
+            initialParams={scannerParams}
             onScanComplete={(result) => {
               saveScanToLocalStorage(result);
             }}
@@ -128,7 +147,7 @@ export default function App() {
         <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-[13px]">
           <div>
             <div className="font-medium text-white tracking-tight text-[14px]">
-              Houdini Autonomous Compliance Auditor
+              Pattern Guard Autonomous Compliance Auditor
             </div>
             <div className="text-[#555] mt-0.5 max-w-md font-mono text-[11px]">
               Forensic deceptive UX detection & regulatory evidence generation. All records stored locally in browser.

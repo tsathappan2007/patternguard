@@ -4,7 +4,7 @@ SHOPSNEAK_HTML_STEP1 = """
 <head>
     <meta charset="UTF-8">
     <title>ShopSneak - Quantum Noise-Cancelling Headphones</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-4xl mx-auto bg-white p-6 border border-gray-300">
@@ -67,7 +67,7 @@ SHOPSNEAK_HTML_STEP2 = """
 <head>
     <meta charset="UTF-8">
     <title>ShopSneak - Order Review & Checkout</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-2xl mx-auto bg-white p-6 border border-gray-300">
@@ -139,7 +139,7 @@ GYMTRAP_HTML_SIGNUP = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap SaaS - 1-Click Free Trial</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-white text-gray-900 font-sans flex items-center justify-center min-h-screen p-6">
     <div class="max-w-md w-full border border-gray-300 p-8 shadow-sm text-center">
@@ -163,7 +163,7 @@ GYMTRAP_HTML_DASHBOARD = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap SaaS - Member Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans p-8">
     <div class="max-w-4xl mx-auto bg-white p-6 border border-gray-300">
@@ -191,7 +191,7 @@ GYMTRAP_HTML_CANCEL_1 = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap - Cancel Step 1 of 4</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-xl mx-auto bg-white p-8 border border-red-200 cancel-flow-step">
@@ -222,7 +222,7 @@ GYMTRAP_HTML_CANCEL_2 = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap - Cancel Step 2 of 4</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-xl mx-auto bg-white p-8 border border-gray-300 cancel-flow-step">
@@ -254,7 +254,7 @@ GYMTRAP_HTML_CANCEL_3 = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap - Cancel Step 3 of 4</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-xl mx-auto bg-white p-8 border border-gray-300 cancel-flow-step">
@@ -292,7 +292,7 @@ GYMTRAP_HTML_CANCEL_4 = """
 <head>
     <meta charset="UTF-8">
     <title>GymTrap - Cancel Step 4: Final Wall</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/mock/styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
     <div class="max-w-xl mx-auto bg-white p-8 border border-red-300 call-support-wall cancel-flow-step">

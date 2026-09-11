@@ -1,10 +1,16 @@
 import asyncio
 import os
 import sys
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.agent.flow_crawler import AutonomousFlowCrawler
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("PATTERN_GUARD_RUN_BROWSER_TESTS") != "1",
+    reason="set PATTERN_GUARD_RUN_BROWSER_TESTS=1 to run live browser tests"
+)
 
 async def test_live_crawl():
     print("=== TESTING REAL-WORLD LIVE AUTONOMOUS CRAWLER ===")

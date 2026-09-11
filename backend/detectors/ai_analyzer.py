@@ -16,10 +16,11 @@ class CoercivePatternAIAnalyzer:
     def analyze_text_corpus(
         self,
         text_segments: List[str],
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        allow_external: bool = True
     ) -> List[Dict[str, Any]]:
         findings = []
-        active_key = (api_key or self.default_api_key or "").strip()
+        active_key = (api_key or self.default_api_key or "").strip() if allow_external else ""
 
         # 1. Deterministic Heuristics (Always active, 100% reliable)
         for text in text_segments:
@@ -77,7 +78,7 @@ class CoercivePatternAIAnalyzer:
                         model = "gpt-4o-mini"
 
                     system_prompt = (
-                        "You are Houdini Dark Pattern Legal Inspector. "
+                        "You are Pattern Guard's Dark Pattern Legal Inspector. "
                         "Analyze the website text snippets for deceptive design patterns, "
                         "confirmshaming, drip pricing, fake urgency, and psychological coercion. "
                         "Return ONLY a JSON array of objects with keys: "

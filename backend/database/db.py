@@ -5,16 +5,19 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 DB_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(DB_DIR, "houdini.db")
+DB_PATH = os.getenv("PATTERN_GUARD_DB_PATH", os.path.join(DB_DIR, "pattern_guard.db"))
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode = WAL")
 
     # Sites Table
     cursor.execute("""

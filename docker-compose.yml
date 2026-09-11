@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  houdini:
+  pattern-guard:
     build: .
-    container_name: houdini-prosecutor
+    container_name: pattern-guard-prosecutor
     ports:
       - "8000:8000"
     environment:

@@ -6,7 +6,7 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
   const [siteName, setSiteName] = useState(initialName || 'ShopSneak Store');
   const [flowType, setFlowType] = useState(initialFlow || 'checkout');
   
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('houdini_ai_key') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('pattern_guard_ai_key') || '');
   const [showAiInput, setShowAiInput] = useState(false);
 
   const [isScanning, setIsScanning] = useState(false);
@@ -17,6 +17,7 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
   const [scanResult, setScanResult] = useState(null);
 
   const logsEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const presets = [
     { name: "ShopSneak Checkout", url: "http://127.0.0.1:8000/mock/shopsneak", flow: "checkout" },
@@ -25,7 +26,7 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
   ];
 
   useEffect(() => {
-    const freshKey = localStorage.getItem('houdini_ai_key') || '';
+    const freshKey = localStorage.getItem('pattern_guard_ai_key') || '';
     setApiKey(freshKey);
   }, []);
 
@@ -34,6 +35,8 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs]);
+
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const handleRunScan = async () => {
     setIsScanning(true);
@@ -44,6 +47,8 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
     setScanResult(null);
 
     const addLog = (msg) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     addLog(`INITIATING AUTONOMOUS AGENT FOR: ${targetUrl}`);
     addLog(`SPAWNING HEADLESS CHROMIUM BROWSER...`);
@@ -56,15 +61,28 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
     try {
       const response = await fetch('/api/scan/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('pattern_guard_scan_token') ? { 'X-Pattern-Guard-Token': localStorage.getItem('pattern_guard_scan_token') } : {})
+        },
         body: JSON.stringify({
           target_url: targetUrl,
           site_name: siteName,
           flow_type: flowType,
           max_steps: 4,
-          ai_api_key: apiKey.trim() || undefined
+          ai_api_key: apiKey.trim() || undefined,
+          ai_endpoint: localStorage.getItem('pattern_guard_ai_endpoint') || undefined,
+          ai_model: localStorage.getItem('pattern_guard_ai_model') || undefined,
+          bright_data_wss_url: localStorage.getItem('pattern_guard_brightdata_url') || undefined
         })
       });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Scan request failed (${response.status}): ${message.slice(0, 300)}`);
+      }
+      if (!response.body) throw new Error('Streaming response body is unavailable.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
@@ -100,12 +118,14 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
                 }
               } else if (data.event === 'finding_detected') {
                 setLiveFindings(prev => [...prev, data]);
-                addLog(`VIOLATION FLAGGED: [${data.severity}] ${data.pattern} (+${data.score_impact} pts)`);
+                addLog(`VIOLATION FLAGGED: [${data.severity}] ${data.pattern_name} (+${data.score_impact} pts)`);
               } else if (data.event === 'scan_completed') {
                 setScanResult(data);
                 if (onScanComplete) {
                   onScanComplete(data);
                 }
+              } else if (data.event === 'error') {
+                addLog(`[ERROR]: ${data.message}`);
               } else if (data.event === 'stream_end') {
                 break;
               }
@@ -116,8 +136,9 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
         }
       }
     } catch (err) {
-      addLog(`CRAWLER AGENT ERROR: ${err.message}`);
+      if (err.name !== 'AbortError') addLog(`CRAWLER AGENT ERROR: ${err.message}`);
     } finally {
+      abortControllerRef.current = null;
       setIsScanning(false);
     }
   };
@@ -172,7 +193,7 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
                 value={apiKey}
                 onChange={(e) => {
                   setApiKey(e.target.value);
-                  localStorage.setItem('houdini_ai_key', e.target.value);
+                  localStorage.setItem('pattern_guard_ai_key', e.target.value);
                 }}
                 className="bg-[#141414] border border-[#313131] rounded-[6px] px-3 py-1.5 text-white font-mono text-[12px] focus:outline-none focus:border-[#6798ff] w-full sm:w-64"
               />

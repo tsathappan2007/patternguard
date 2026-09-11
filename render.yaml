@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: houdini-dark-pattern-prosecutor
+    name: pattern-guard-dark-pattern-prosecutor
     env: docker
     plan: free
     region: oregon

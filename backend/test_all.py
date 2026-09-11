@@ -12,6 +12,7 @@ from backend.agent.flow_crawler import AutonomousFlowCrawler
 def run_tests():
     print("=== [1/4] TESTING FASTAPI API ENDPOINTS ===")
     client = TestClient(app)
+    client.__enter__()
 
     # 1. Health check
     res = client.get("/api/health")
@@ -44,6 +45,7 @@ def run_tests():
     res2 = client.get("/mock/gymtrap")
     assert res2.status_code == 200 and "GymTrap" in res2.text
     print("[OK] Mock sites accessible locally for zero-fail demos")
+    client.__exit__(None, None, None)
 
     print("\n=== [3/4] TESTING AUTONOMOUS PLAYWRIGHT FLOW CRAWLER ===")
     crawler = AutonomousFlowCrawler()

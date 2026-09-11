@@ -1,4 +1,4 @@
-# Production Multi-Stage Dockerfile for Houdini
+# Production Multi-Stage Dockerfile for Pattern Guard
 # Fully self-contained: includes Node.js (builds React UI), Python 3.11, Playwright Headless Chromium, & FastAPI
 
 FROM python:3.11-slim
@@ -42,7 +42,7 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy Frontend and Build Production Bundle
 COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -53,6 +53,9 @@ COPY README.md .
 
 # Expose port (supports Render/Railway dynamic $PORT)
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail http://127.0.0.1:${PORT:-8000}/api/health || exit 1
 
 # Start FastAPI server with single-port fullstack hosting
 CMD python -m uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}

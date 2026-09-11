@@ -80,7 +80,7 @@ export default function HeroBand({ onOpenScanner, onOpenSandbox, onQuickScan }) 
 
             {/* Subtitle */}
             <p className="text-base sm:text-lg text-[#a7a7a7] max-w-2xl leading-[1.5] mb-12">
-              Houdini is an automated tool used to identify dark patterns in a website. It walks real signup, checkout, and cancellation funnels to detect manipulative UX in the act.
+              Pattern Guard is an automated tool used to identify dark patterns in a website. It walks real signup, checkout, and cancellation funnels to detect manipulative UX in the act.
             </p>
 
             {/* Action Buttons */}
@@ -185,7 +185,7 @@ export default function HeroBand({ onOpenScanner, onOpenSandbox, onQuickScan }) 
             CAPABILITIES
           </span>
           <h2 className="text-[40px] font-medium text-white tracking-[-0.84px] leading-[1.2]">
-            How Houdini finds deceptive UX
+            How Pattern Guard finds deceptive UX
           </h2>
           <p className="text-[16px] text-[#a7a7a7] leading-[1.5]">
             Practical features built to surface hidden traps in real-world user flows.
@@ -235,7 +235,7 @@ export default function HeroBand({ onOpenScanner, onOpenSandbox, onQuickScan }) 
               Proactive dark pattern testing before regulatory subpoenas
             </h2>
             <p className="text-[16px] text-[#a7a7a7] leading-[1.5]">
-              Houdini actively challenges checkout carts, tests whether countdown clocks reset upon reload, and maps out hidden subscription fee escalation.
+              Pattern Guard actively challenges checkout carts, tests whether countdown clocks reset upon reload, and maps out hidden subscription fee escalation.
             </p>
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-3 text-[14px] text-[#a7a7a7]">

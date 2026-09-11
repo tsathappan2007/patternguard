@@ -9,7 +9,15 @@ class RoachMotelDetector(BaseDetector):
         results = []
         flow_type = flow_context.get("flow_type", "")
         steps = flow_context.get("steps", [])
-        cancel_step_count = len(steps)
+        previous_cancel_steps = sum(
+            1 for step in steps
+            if "cancel" in str(step.get("url", "")).lower() or "cancel" in str(step.get("title", "")).lower()
+        )
+        current_is_cancel_step = (
+            "cancel" in str(step_data.get("url", "")).lower()
+            or "cancel" in str(step_data.get("title", "")).lower()
+        )
+        cancel_step_count = previous_cancel_steps + (1 if current_is_cancel_step else 0)
         signup_step_count = flow_context.get("signup_step_count", 1)
         
         # Detect Phone-Call or Support-Ticket Only barriers
