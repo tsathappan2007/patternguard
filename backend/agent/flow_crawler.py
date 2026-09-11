@@ -348,8 +348,8 @@ class AutonomousFlowCrawler:
                 # Build rich navigation node structure
                 node_structure = {
                     "step_number": step_idx,
-                    "url": page.url,
-                    "title": step_title,
+                    "url": step_data.get("url", page.url),
+                    "title": step_data.get("title") or step_title,
                     "raw_screenshot": raw_rel_url,
                     "annotated_screenshot": annotated_rel_url or raw_rel_url,
                     "findings_count": len(step_findings),
@@ -651,16 +651,18 @@ class AutonomousFlowCrawler:
                         || Boolean(document.querySelector('[itemprop="product"], #buy-now-button, #add-to-cart-button'));
                     const isProduct = strongProductSignal
                         || /(?:product details?|buy now|add to cart|proceed(?: to)? .*checkout)/i.test(contextText);
-                    const isCheckout = !isProduct && (
+                    const checkoutPath = /\/checkout(?:\/|\?|$)/i.test(window.location.pathname);
+                    const cartPath = /\/(?:cart|basket)(?:\/|\?|$)/i.test(window.location.pathname);
+                    const isCheckout = checkoutPath || (!strongProductSignal && (
                         Boolean(document.querySelector('[class*="order-total"], [class*="grand-total"], [class*="checkout-total"]'))
-                        || /(?:\/checkout|order summary|review your order|place your order|payment method)/i.test(contextText)
-                    );
-                    const isCart = !isProduct && (
+                        || /(?:order summary|review your order|place your order|payment method)/i.test(contextText)
+                    ));
+                    const isCart = cartPath || (!strongProductSignal && (
                         Boolean(document.querySelector('[class*="basket"], [id*="basket"], [class*="cart-total"], [id*="cart-total"]'))
-                        || /(?:\/cart|\/basket|shopping cart|your basket)/i.test(contextText)
-                    );
+                        || /(?:shopping cart|your basket)/i.test(contextText)
+                    ));
                     const isCancellation = /(?:\/cancel|cancellation|terminate (?:plan|subscription)|end membership)/i.test(contextText);
-                    const pageContext = isAuth ? 'auth' : isProduct ? 'product' : isCheckout ? 'checkout' : isCart ? 'cart' : isCancellation ? 'cancellation' : 'browse';
+                    const pageContext = isAuth ? 'auth' : isCheckout ? 'checkout' : isCart ? 'cart' : isProduct ? 'product' : isCancellation ? 'cancellation' : 'browse';
 
                     const currencyRegex = /(?:[$€£₹]|USD|EUR|GBP|INR)\s*\d[\d,]*(?:\.\d{1,2})?/i;
                     const totalRegex = /(?:grand\s*total|order\s*total|total\s*(?:due|payable|amount|price)|amount\s*(?:due|payable)|pay\s*now)/i;
@@ -810,12 +812,34 @@ class AutonomousFlowCrawler:
         open_cart = re.compile(r"\b(?:view|go to|open|shopping|your) (?:cart|basket)\b", re.IGNORECASE)
         checkout = re.compile(r"\b(?:proceed(?: to)?|go to|start) checkout\b|\bcheckout\b", re.IGNORECASE)
 
+        if page_context == "product" and phase == "primary":
+            add_candidates = []
+            for candidate in candidates:
+                searchable = " ".join(str(candidate.get(key, "")) for key in ("label", "href", "form_action"))
+                identifier = f'{candidate.get("id", "")} {candidate.get("name", "")}'
+                if blocked.search(searchable) or not add_to_cart.search(searchable):
+                    continue
+                if re.search(r"nav-assist|keyboard|hotkey|shortcut|shift\s*\+\s*alt", f"{identifier} {searchable}", re.IGNORECASE):
+                    continue
+                score = 0
+                if candidate.get("id", "").lower() == "add-to-cart-button":
+                    score += 100
+                if "submit.add-to-cart" in candidate.get("name", "").lower():
+                    score += 90
+                if re.search(r"handle-buy-box|add-to-cart", candidate.get("form_action", ""), re.IGNORECASE):
+                    score += 60
+                if candidate.get("tag") in {"button", "input"}:
+                    score += 20
+                add_candidates.append((score, candidate))
+            if add_candidates:
+                _, candidate = max(add_candidates, key=lambda item: item[0])
+                return {**candidate, "action_type": "add_to_cart"}
+            return None
+
         for candidate in candidates:
             searchable = " ".join(str(candidate.get(key, "")) for key in ("label", "href", "form_action"))
             if blocked.search(searchable):
                 continue
-            if page_context == "product" and phase == "primary" and add_to_cart.search(searchable):
-                return {**candidate, "action_type": "add_to_cart"}
             if phase == "after_add" and (
                 open_cart.search(searchable)
                 or re.search(r"/(?:gp/)?(?:cart|basket)(?:/|\?|$)", searchable, re.IGNORECASE)
@@ -905,24 +929,56 @@ class AutonomousFlowCrawler:
             return False
         performed_actions.add(action_key)
         label = candidate.get("label") or action_type.replace("_", " ").title()
+        label = " ".join(label.split())
         emit("log", {"message": f"[Safe Action]: {label[:100]}"})
         try:
-            selector = f'[data-pattern-guard-action-id="{candidate["action_id"]}"]'
+            if candidate.get("id"):
+                selector = f'[id={json.dumps(candidate["id"])}]'
+            elif candidate.get("name"):
+                selector = f'[name={json.dumps(candidate["name"])}]'
+            else:
+                selector = f'[data-pattern-guard-action-id={json.dumps(candidate["action_id"])}]'
             previous_url = page.url
-            # The element was already verified as visible, enabled, and safe.
-            # DOM activation handles controls rendered outside the initial
-            # viewport while still activating only the allow-listed element.
-            page.locator(selector).first.evaluate(r"""
-                element => {
-                    element.scrollIntoView({block: 'center', inline: 'center'});
-                    const form = element.closest('form');
-                    if (form && ['submit', 'image'].includes((element.type || '').toLowerCase())) {
-                        form.requestSubmit(element);
-                    } else {
-                        element.click();
-                    }
-                }
-            """)
+            locator = page.locator(selector).first
+            # Amazon often renders this control at the bottom edge of the
+            # initial viewport. Center it first, then send a genuine pointer
+            # click so the site's trusted-event handlers can update the cart.
+            locator.evaluate("element => element.scrollIntoView({block: 'center', inline: 'center'})")
+            page.wait_for_timeout(350)
+            try:
+                locator.click(force=True, timeout=8000)
+            except Exception as pointer_error:
+                emit("log", {
+                    "message": f"[Safe Action Notice]: Pointer click failed: {' '.join(str(pointer_error).split())[:240]}"
+                })
+                # If the pointer click did not already navigate or update the
+                # cart, submit the exact allow-listed form control directly.
+                already_changed = page.url != previous_url
+                if not already_changed:
+                    try:
+                        already_changed = bool(page.evaluate(r"""
+                            () => {
+                                const count = document.querySelector('#nav-cart-count, [data-testid*="cart-count" i]');
+                                return Boolean(count && Number((count.textContent || '').trim()) > 0);
+                            }
+                        """))
+                    except Exception:
+                        already_changed = False
+                if not already_changed:
+                    emit("log", {"message": "[Safe Action]: Pointer click blocked; using verified form fallback."})
+                    try:
+                        locator.evaluate(r"""
+                            element => {
+                                const form = element.closest('form');
+                                if (form && ['submit', 'image'].includes((element.type || '').toLowerCase())) {
+                                    form.requestSubmit(element);
+                                } else {
+                                    element.click();
+                                }
+                            }
+                        """)
+                    except Exception:
+                        raise pointer_error
             try:
                 page.wait_for_load_state("domcontentloaded", timeout=8000)
             except Exception:
@@ -1047,6 +1103,27 @@ class AutonomousFlowCrawler:
             }
 
         if page_context == "cart":
+            cart_hostname = (urllib.parse.urlparse(page.url).hostname or "").lower()
+            amazon_cart = bool(re.search(r"(?:^|\.)amazon\.", cart_hostname))
+            try:
+                visibly_signed_out = bool(page.evaluate(r"""
+                    () => Array.from(document.querySelectorAll('a, button')).some(el => {
+                        const style = window.getComputedStyle(el);
+                        const box = el.getBoundingClientRect();
+                        const visible = box.width > 0 && box.height > 0
+                            && style.display !== 'none' && style.visibility !== 'hidden';
+                        const label = (el.innerText || el.getAttribute('aria-label') || '').trim();
+                        return visible && /^(?:hello,?\s*)?sign[ -]?in(?:\s|$)/i.test(label);
+                    })
+                """))
+            except Exception:
+                visibly_signed_out = False
+            if amazon_cart or visibly_signed_out:
+                return {
+                    "continue": False, "page_ready": False, "next_url": None,
+                    "reason": "Cart captured; authentication is required before checkout and was not attempted",
+                    "action_type": "safety_stop_before_authentication"
+                }
             checkout_action = self._choose_safe_checkout_action(candidates, page_context)
             if not checkout_action:
                 return {

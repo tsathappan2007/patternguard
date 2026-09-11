@@ -90,8 +90,15 @@ def test_price_inflation_requires_mandatory_fee_evidence():
 
 def test_safe_checkout_actions_allow_cart_progression_only():
     candidates = [
+        {
+            "label": "Add to cart Shift + Alt + K", "id": "nav-assist-add-to-cart",
+            "tag": "button", "href": ""
+        },
         {"label": "Buy Now with 1-Click", "href": "/buy-now"},
-        {"label": "Add to Cart", "href": ""},
+        {
+            "label": "Add to Cart", "href": "", "id": "add-to-cart-button",
+            "name": "submit.add-to-cart", "tag": "input", "form_action": "/gp/product/handle-buy-box"
+        },
         {"label": "Place your order", "href": "/checkout/submit"},
     ]
     action = AutonomousFlowCrawler._choose_safe_checkout_action(candidates, "product")
