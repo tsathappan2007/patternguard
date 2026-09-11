@@ -9,7 +9,7 @@ import socket
 import threading
 import urllib.parse
 from typing import List, Dict, Any, Optional, Callable
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 try:
     from backend.database.db import get_db_connection
@@ -189,7 +189,7 @@ class AutonomousFlowCrawler:
                 step_title = f"Step {step_idx}"
 
                 try:
-                    page.goto(current_url, wait_until="domcontentloaded", timeout=15000)
+                    page.goto(current_url, wait_until="domcontentloaded", timeout=25000)
                     try:
                         page.wait_for_load_state("networkidle", timeout=5000)
                     except Exception:
@@ -201,6 +201,32 @@ class AutonomousFlowCrawler:
                     time.sleep(0.2)
                     step_title = page.title() or f"Step {step_idx}"
                     emit("log", {"message": f"Step {step_idx} Node Activated: '{step_title}'"})
+                except PlaywrightTimeoutError as nav_error:
+                    # Large commerce pages can leave analytics or ad resources
+                    # pending even after their useful DOM has rendered. Preserve
+                    # that page instead of discarding a valid inspection target.
+                    try:
+                        page.evaluate("window.stop()")
+                        body_text = page.locator("body").inner_text(timeout=3000).strip()
+                    except Exception:
+                        body_text = ""
+                    if len(body_text) >= 200 and page.url.startswith(("http://", "https://")):
+                        step_title = page.title() or f"Step {step_idx}"
+                        emit("log", {
+                            "message": (
+                                f"Step {step_idx}: Load timeout reached, but a usable DOM was recovered "
+                                f"at {page.url}. Continuing inspection."
+                            )
+                        })
+                        emit("log", {"message": f"Step {step_idx} Node Activated: '{step_title}'"})
+                    else:
+                        emit("log", {"message": f"Step {step_idx} navigation failed: {str(nav_error)[:160]}"})
+                        if step_idx == 1:
+                            raise RuntimeError(
+                                "Unable to load target URL: the page timed out before a usable DOM was available. "
+                                "Configure a valid Bright Data Scraping Browser WSS URL if the site blocks local automation."
+                            ) from nav_error
+                        break
                 except Exception as nav_error:
                     emit("log", {"message": f"Step {step_idx} navigation failed: {str(nav_error)[:160]}"})
                     if step_idx == 1:
@@ -227,15 +253,30 @@ class AutonomousFlowCrawler:
 
                 emit("log", {"message": f"Step {step_idx}: Inspecting DOM choice architecture..."})
 
-                # Run rule detection engine on this step
-                step_findings = self.engine.analyze_step(
-                    step_data=step_data,
-                    flow_context=flow_context,
-                    api_key=None
+                # Do not prosecute pages reached after the crawler has left the
+                # requested checkout funnel (for example, sign-in or home pages).
+                outside_requested_flow = (
+                    step_idx > 1
+                    and flow_type == "checkout"
+                    and step_data.get("page_context") not in {"product", "cart", "checkout"}
                 )
+                if outside_requested_flow:
+                    emit("log", {
+                        "message": (
+                            f"Step {step_idx}: {step_data.get('page_context', 'unknown').title()} boundary "
+                            "is outside the verified checkout funnel; suppressing detector output."
+                        )
+                    })
+                    step_findings = []
+                else:
+                    step_findings = self.engine.analyze_step(
+                        step_data=step_data,
+                        flow_context=flow_context,
+                        api_key=None
+                    )
 
                 # If AI API key is connected, invoke AI inference
-                if has_ai:
+                if has_ai and not outside_requested_flow:
                     summary = {
                         "title": step_data.get("title"),
                         "buttons": [b.get("text") for b in step_data.get("buttons", [])[:6]],
@@ -300,6 +341,13 @@ class AutonomousFlowCrawler:
                     "buttons": step_data.get("buttons", []),
                     "checkboxes": step_data.get("checkboxes", []),
                     "prices": step_data.get("prices", []),
+                    "price_detected": step_data.get("price_detected"),
+                    "price_currency": step_data.get("price_currency"),
+                    "price_symbol": step_data.get("price_symbol"),
+                    "price_role": step_data.get("price_role"),
+                    "price_selector": step_data.get("price_selector"),
+                    "price_bounding_box": step_data.get("price_bounding_box"),
+                    "page_context": step_data.get("page_context", "unknown"),
                     "disclaimers": step_data.get("disclaimers", []),
                     "next_navigation_target": next_url,
                     "navigation_intent": nav_action_reason
@@ -463,7 +511,14 @@ class AutonomousFlowCrawler:
                     step_id, result["scan_id"], step["step_number"], step["title"], step["url"],
                     step.get("navigation_intent"), step.get("raw_screenshot"), step.get("annotated_screenshot"),
                     json.dumps({"buttons": step.get("buttons", []), "checkboxes": step.get("checkboxes", [])}),
-                    max(step.get("prices", []) or [0.0]), json.dumps({"disclaimers": step.get("disclaimers", [])})
+                    step.get("price_detected"), json.dumps({
+                        "disclaimers": step.get("disclaimers", []),
+                        "page_context": step.get("page_context"),
+                        "price_currency": step.get("price_currency"),
+                        "price_symbol": step.get("price_symbol"),
+                        "price_role": step.get("price_role"),
+                        "price_selector": step.get("price_selector")
+                    })
                 ))
 
             for finding in result["findings"]:
@@ -549,7 +604,7 @@ class AutonomousFlowCrawler:
 
                     const allTextNodes = Array.from(document.querySelectorAll('div, li, p, span, td')).filter(el => el.children.length <= 3);
                     const feeRegex = /(service|convenience|platform|processing|handling|resort|facility|admin|regulatory|security|booking)\s+(fee|charge|surcharge)/i;
-                    const moneyRegex = /(?:\$|USD\s*)\s*([0-9]+(?:\.[0-9]{1,2})?)/i;
+                    const moneyRegex = /(?:([$€£₹])|(USD|EUR|GBP|INR)\s*)([0-9][\d,]*(?:\.\d{1,2})?)/i;
                     const feeLineItems = allTextNodes.filter(el => {
                         const matches = feeRegex.test(el.innerText || '') && moneyRegex.test(el.innerText || '');
                         const matchingChild = Array.from(el.children).some(child => feeRegex.test(child.innerText || '') && moneyRegex.test(child.innerText || ''));
@@ -557,10 +612,57 @@ class AutonomousFlowCrawler:
                     }).slice(0, 12).map(el => {
                         const item = metadata(el);
                         const amount = (el.innerText || '').match(moneyRegex);
-                        return {...item, name: item.text, amount: amount ? Number(amount[1]) : 0, is_mandatory: true};
+                        const currencyMap = {'$': 'USD', '€': 'EUR', '£': 'GBP', '₹': 'INR'};
+                        const currency = amount ? (amount[2] || currencyMap[amount[1]] || '').toUpperCase() : '';
+                        return {
+                            ...item,
+                            name: item.text,
+                            amount: amount ? Number(amount[3].replace(/,/g, '')) : 0,
+                            currency,
+                            currency_symbol: amount ? (amount[1] || {USD: '$', EUR: '€', GBP: '£', INR: '₹'}[currency] || '') : '',
+                            is_mandatory: true
+                        };
                     });
 
                     const pageText = document.body ? document.body.innerText.slice(0, 12000) : '';
+                    const contextText = `${window.location.pathname} ${document.title} ${pageText.slice(0, 3000)}`;
+                    const hasPasswordField = Boolean(document.querySelector('input[type="password"]'));
+                    const isAuth = hasPasswordField || /(?:\/signin|\/login|\/register|sign in to|log in to)/i.test(contextText);
+                    const strongProductSignal = /(?:\/dp\/|\/gp\/product\/)/i.test(window.location.pathname)
+                        || Boolean(document.querySelector('[itemprop="product"], #buy-now-button, #add-to-cart-button'));
+                    const isProduct = strongProductSignal
+                        || /(?:product details?|buy now|add to cart|proceed(?: to)? .*checkout)/i.test(contextText);
+                    const isCheckout = !isProduct && (
+                        Boolean(document.querySelector('[class*="order-total"], [class*="grand-total"], [class*="checkout-total"]'))
+                        || /(?:\/checkout|order summary|review your order|place your order|payment method)/i.test(contextText)
+                    );
+                    const isCart = !isProduct && (
+                        Boolean(document.querySelector('[class*="basket"], [id*="basket"], [class*="cart-total"], [id*="cart-total"]'))
+                        || /(?:\/cart|\/basket|shopping cart|your basket)/i.test(contextText)
+                    );
+                    const isCancellation = /(?:\/cancel|cancellation|terminate (?:plan|subscription)|end membership)/i.test(contextText);
+                    const pageContext = isAuth ? 'auth' : isProduct ? 'product' : isCheckout ? 'checkout' : isCart ? 'cart' : isCancellation ? 'cancellation' : 'browse';
+
+                    const currencyRegex = /(?:[$€£₹]|USD|EUR|GBP|INR)\s*\d[\d,]*(?:\.\d{1,2})?/i;
+                    const totalRegex = /(?:grand\s*total|order\s*total|total\s*(?:due|payable|amount|price)|amount\s*(?:due|payable)|pay\s*now)/i;
+                    const priceNodes = Array.from(document.querySelectorAll(
+                        '[itemprop="price"], [data-testid*="price" i], [data-testid*="total" i], [id*="price" i], [id*="total" i], [class*="price" i], [class*="total" i]'
+                    )).filter(el => box(el) && currencyRegex.test(el.innerText || el.textContent || el.getAttribute('content') || ''));
+                    const semanticTotalNodes = allTextNodes.filter(el => {
+                        const text = el.innerText || '';
+                        return box(el) && totalRegex.test(text) && currencyRegex.test(text)
+                            && !Array.from(el.children).some(child => totalRegex.test(child.innerText || '') && currencyRegex.test(child.innerText || ''));
+                    });
+                    const seenPriceNodes = new Set();
+                    const priceCandidates = [...semanticTotalNodes, ...priceNodes].filter(el => {
+                        if (seenPriceNodes.has(el)) return false;
+                        seenPriceNodes.add(el);
+                        return true;
+                    }).slice(0, 20).map(el => {
+                        const item = metadata(el);
+                        const text = el.innerText || el.textContent || el.getAttribute('content') || '';
+                        return {...item, text: text.trim().slice(0, 300), price_role: totalRegex.test(text) ? 'total' : 'product'};
+                    });
                     const bannerElements = Array.from(document.querySelectorAll('[class*="urgency"], [class*="scarcity"], [class*="countdown"], [class*="timer"], [class*="alert"], [role="alert"]')).slice(0, 20).map(metadata);
                     const timerElement = Array.from(document.querySelectorAll('[class*="countdown"], [class*="timer"], [data-countdown]')).find(el => /\d{1,2}:\d{2}/.test(el.innerText || ''));
                     const scriptText = Array.from(document.scripts).map(s => s.textContent || '').join('\n');
@@ -583,6 +685,8 @@ class AutonomousFlowCrawler:
                         bannerElements,
                         timerDetected,
                         cancellationBarrier: cancellationBarrierElement ? metadata(cancellationBarrierElement) : null,
+                        pageContext,
+                        priceCandidates,
                         pageText,
                         domHtml: document.documentElement.outerHTML.slice(0, 20000)
                     };
@@ -591,19 +695,39 @@ class AutonomousFlowCrawler:
         except Exception:
             dom_data = {
                 "checkboxes": [], "buttons": [], "disclaimers": [], "interactiveElements": [],
-                "disclosureElements": [], "feeLineItems": [], "bannerElements": [], "pageText": "", "domHtml": ""
+                "disclosureElements": [], "feeLineItems": [], "bannerElements": [], "priceCandidates": [],
+                "pageContext": "browse", "pageText": "", "domHtml": ""
             }
 
         page_text = dom_data.get("pageText", "")
-        price_matches = re.findall(r"\$\s?([0-9]+\.[0-9]{2})|([0-9]+\.[0-9]{2})\s?USD|₹\s?([0-9]+(?:\.[0-9]{2})?)", page_text)
+        page_context = dom_data.get("pageContext", "browse")
+        candidates = dom_data.get("priceCandidates", [])
+        if page_context in {"cart", "checkout"}:
+            candidates = [candidate for candidate in candidates if candidate.get("price_role") == "total"]
+        elif page_context == "product":
+            product_candidates = [candidate for candidate in candidates if candidate.get("price_role") == "product"]
+            candidates = product_candidates or candidates
+        else:
+            candidates = []
+
         prices = []
-        for m in price_matches[:8]:
-            val = next((item for item in m if item), None)
-            if val:
-                try:
-                    prices.append(float(val.replace(",", "")))
-                except Exception:
-                    pass
+        selected_price = None
+        selected_candidate = None
+        for candidate in candidates:
+            parsed_price = self._parse_money(candidate.get("text", ""))
+            if parsed_price:
+                prices.append(parsed_price[0])
+                if selected_price is None:
+                    selected_price = parsed_price
+                    selected_candidate = candidate
+
+        # Product pages often render the main price with utility classes rather
+        # than semantic names. In that context only, the first visible money
+        # value is a safer baseline than the previous page-wide maximum.
+        if selected_price is None and page_context == "product":
+            selected_price = self._parse_money(page_text)
+            if selected_price:
+                prices = [selected_price[0]]
 
         return {
             "step": step_idx,
@@ -621,20 +745,53 @@ class AutonomousFlowCrawler:
             "banner_elements": dom_data.get("bannerElements", []),
             "timer_detected": dom_data.get("timerDetected"),
             "cancellation_barrier": dom_data.get("cancellationBarrier"),
+            "page_context": page_context,
             "prices": prices,
-            "price_detected": max(prices) if prices else None,
+            "price_detected": selected_price[0] if selected_price else None,
+            "price_currency": selected_price[1] if selected_price else None,
+            "price_symbol": selected_price[2] if selected_price else None,
+            "price_role": selected_candidate.get("price_role") if selected_candidate else ("product" if selected_price else None),
+            "price_selector": selected_candidate.get("selector") if selected_candidate else None,
+            "price_bounding_box": selected_candidate.get("bounding_box") if selected_candidate else None,
             "screenshot_path": screenshot_path
         }
+
+    @staticmethod
+    def _parse_money(text: str):
+        match = re.search(
+            r"(?:(?P<symbol>[$€£₹])|(?P<code>USD|EUR|GBP|INR))\s*(?P<amount>\d[\d,]*(?:\.\d{1,2})?)",
+            str(text or ""),
+            re.IGNORECASE
+        )
+        if not match:
+            return None
+        symbol_to_currency = {"$": "USD", "€": "EUR", "£": "GBP", "₹": "INR"}
+        currency_to_symbol = {"USD": "$", "EUR": "€", "GBP": "£", "INR": "₹"}
+        currency = (match.group("code") or symbol_to_currency.get(match.group("symbol"), "")).upper()
+        try:
+            amount = float(match.group("amount").replace(",", ""))
+        except ValueError:
+            return None
+        return amount, currency, currency_to_symbol.get(currency, match.group("symbol") or "")
 
     def _find_next_url_with_intent(self, page, flow_type: str) -> (Optional[str], str):
         """Finds next step URL and returns the strategic navigation intent."""
         try:
-            next_href = page.evaluate("""
+            navigation = page.evaluate(r"""
                 (flowType) => {
+                    const contextText = `${window.location.pathname} ${document.title}`;
+                    if (document.querySelector('input[type="password"]') || /(?:\/signin|\/login|\/register|sign in|log in)/i.test(contextText)) {
+                        return {url: null, reason: 'Authentication boundary reached; stopping unauthenticated audit'};
+                    }
                     const links = Array.from(document.querySelectorAll('a[href]')).filter(link => {
                         try {
                             const url = new URL(link.href, window.location.href);
-                            return url.origin === window.location.origin && ['http:', 'https:'].includes(url.protocol);
+                            const label = `${link.innerText || ''} ${link.getAttribute('aria-label') || ''} ${url.pathname}`;
+                            const unrelated = /amazon pay|sign in|log in|register|create account|home|logo|customer service|today'?s deals|best sellers|new releases|prime video/i.test(label);
+                            return url.origin === window.location.origin
+                                && ['http:', 'https:'].includes(url.protocol)
+                                && !unrelated
+                                && link.href !== window.location.href;
                         } catch { return false; }
                     });
                     
@@ -643,27 +800,25 @@ class AutonomousFlowCrawler:
                     if (flowType === 'cancellation') {
                         const cancelBtn = links.find(l => cancelRegex.test(`${l.innerText || ''} ${l.getAttribute('aria-label') || ''} ${l.href || ''}`));
                         if (cancelBtn && cancelBtn.href && cancelBtn.href !== window.location.href) {
-                            return cancelBtn.href;
+                            return {url: cancelBtn.href, reason: 'Traversing Cancellation Obstacle Maze'};
                         }
                     }
 
-                    // 2. Progression matches (checkout, trial, start, continue, dashboard, order)
-                    const priorityRegex = /proceed|checkout|buy now|start|free trial|get access|continue|view cart|order now|dashboard|sign up|join|plan/i;
+                    // Require an explicit flow-specific progression link. Never
+                    // wander through the site's global navigation as a fallback.
+                    const priorityRegex = flowType === 'checkout'
+                        ? /proceed(?: to)? checkout|checkout|buy now|view cart|go to cart|review order|continue to payment|place order/i
+                        : /start|free trial|get access|continue|sign up|join|select plan/i;
                     const nextBtn = links.find(l => priorityRegex.test(`${l.innerText || ''} ${l.getAttribute('aria-label') || ''} ${l.href || ''}`));
                     if (nextBtn && nextBtn.href && nextBtn.href !== window.location.href) {
-                        return nextBtn.href;
+                        return {url: nextBtn.href, reason: 'Progressing Verified Funnel Link'};
                     }
 
-                    // 3. Fallback: first internal valid link
-                    const anyLink = links.find(l => l.href && !l.href.includes('#') && l.href !== window.location.href);
-                    if (anyLink && anyLink.href) return anyLink.href;
-
-                    return null;
+                    return {url: null, reason: 'No verified funnel transition found'};
                 }
             """, flow_type)
-            if next_href:
-                intent = "Traversing Cancellation Obstacle Maze" if "cancel" in (flow_type + next_href).lower() else "Progressing Funnel Walkthrough"
-                return next_href, intent
+            if navigation:
+                return navigation.get("url"), navigation.get("reason", "Completed Funnel Walkthrough")
         except Exception:
             pass
         return None, "Completed Funnel Walkthrough"

@@ -5,6 +5,7 @@ import pytest
 from backend.agent.flow_crawler import AutonomousFlowCrawler
 from backend.database import db
 from backend.detectors.engine import DarkPatternEngine
+from backend.detectors.drip_pricing import DripPricingDetector
 from backend.scoring.calculator import calculate_manipulation_index
 from backend.mock_sites import mock_templates
 
@@ -24,10 +25,67 @@ def test_crawler_schema_drives_detectors():
         "banner_elements": [{"text": "Only 2 left in stock"}],
         "timer_detected": {"display_time": "04:59", "resets_on_reload": True},
         "price_detected": 120.0,
+        "price_currency": "USD",
+        "price_symbol": "$",
+        "price_role": "total",
+        "page_context": "checkout",
     }
-    context = {"flow_type": "checkout", "steps": [{"price_detected": 89.0}]}
+    context = {"flow_type": "checkout", "steps": [{
+        "price_detected": 89.0,
+        "price_currency": "USD",
+        "price_symbol": "$",
+        "price_role": "product",
+        "page_context": "product",
+    }]}
     categories = {finding["category"] for finding in DarkPatternEngine().analyze_step(step, context)}
     assert {"Sneaking", "Hidden Costs", "Urgency"}.issubset(categories)
+
+
+def test_price_parser_preserves_currency_and_indian_grouping():
+    assert AutonomousFlowCrawler._parse_money("Deal price ₹67,500.00") == (67500.0, "INR", "₹")
+    assert AutonomousFlowCrawler._parse_money("Total USD 149.99") == (149.99, "USD", "$")
+
+
+def test_drip_pricing_ignores_unrelated_browse_page_prices():
+    context = {"flow_type": "checkout", "steps": [{
+        "price_detected": 675.0,
+        "price_currency": "INR",
+        "price_symbol": "₹",
+        "price_role": "product",
+        "page_context": "product",
+    }]}
+    amazon_homepage = {
+        "step_number": 4,
+        "price_detected": 899.0,
+        "price_currency": "INR",
+        "price_symbol": "₹",
+        "price_role": "product",
+        "page_context": "browse",
+        "fee_line_items": [],
+    }
+    findings = DripPricingDetector().analyze_step(amazon_homepage, context)
+    assert not any(f.pattern_name == "Late-Stage Checkout Price Inflation" for f in findings)
+
+
+def test_price_inflation_requires_mandatory_fee_evidence():
+    context = {"flow_type": "checkout", "steps": [{
+        "price_detected": 675.0,
+        "price_currency": "INR",
+        "price_symbol": "₹",
+        "price_role": "product",
+        "page_context": "product",
+    }]}
+    checkout_without_fees = {
+        "step_number": 2,
+        "price_detected": 899.0,
+        "price_currency": "INR",
+        "price_symbol": "₹",
+        "price_role": "total",
+        "page_context": "checkout",
+        "fee_line_items": [],
+    }
+    findings = DripPricingDetector().analyze_step(checkout_without_fees, context)
+    assert not any(f.pattern_name == "Late-Stage Checkout Price Inflation" for f in findings)
 
 
 def test_mock_pages_use_local_stylesheet():
