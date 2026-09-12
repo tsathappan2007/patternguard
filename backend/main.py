@@ -88,6 +88,7 @@ app.add_middleware(
 )
 
 # Mount static folder for screenshots and annotated evidence
+STATIC_DIR = (STATIC_DIR or "").strip() or os.path.join(PROJECT_ROOT, "backend", "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
