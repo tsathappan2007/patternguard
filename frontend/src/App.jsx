@@ -7,12 +7,13 @@ import EvidenceModal from './components/EvidenceModal';
 import SandboxSimulator from './components/SandboxSimulator';
 import DarkPatternGuide from './components/DarkPatternGuide';
 import RegulatoryReportModal from './components/RegulatoryReportModal';
-import ApiKeyModal from './components/ApiKeyModal';
+import AuthorityReviewPortal from './components/AuthorityReviewPortal';
+import { apiUrl } from './lib/api';
 
 const STORAGE_KEY = 'pattern_guard_scan_history';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'studio' | 'registry'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'studio' | 'registry' | 'authority'
   
   // Local cache, hydrated from the server's persisted scan registry when available.
   const [scanHistory, setScanHistory] = useState(() => {
@@ -29,7 +30,6 @@ export default function App() {
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isDossierOpen, setIsDossierOpen] = useState(false);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [dossierData, setDossierData] = useState(null);
 
   const [scannerParams, setScannerParams] = useState({
@@ -40,7 +40,7 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/scans?limit=50', { signal: controller.signal })
+    fetch(apiUrl('/api/scans?limit=50'), { signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
       .then(data => {
         if (!Array.isArray(data.scans)) return;
@@ -107,7 +107,6 @@ export default function App() {
         onOpenScanner={() => setActiveTab('studio')}
         onOpenSandbox={() => setIsSandboxOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
-        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
       />
 
       {/* Main View Area */}
@@ -127,7 +126,6 @@ export default function App() {
             onScanComplete={(result) => {
               saveScanToLocalStorage(result);
             }}
-            onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
             onOpenDossier={handleOpenDossier}
           />
         )}
@@ -138,6 +136,15 @@ export default function App() {
             onSelectScan={handleSelectScan}
             onClearHistory={handleClearHistory}
             onOpenScanner={() => setActiveTab('studio')}
+          />
+        )}
+
+        {activeTab === 'authority' && (
+          <AuthorityReviewPortal
+            onOpenScan={(scan) => {
+              setSelectedScanData(scan);
+              setActiveTab('studio');
+            }}
           />
         )}
       </main>
@@ -172,6 +179,12 @@ export default function App() {
               className="hover:text-white transition-colors cursor-pointer"
             >
               Audit Registry ({scanHistory.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('authority')}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Authority Review
             </button>
             <button
               onClick={() => setIsGuideOpen(true)}
@@ -224,12 +237,6 @@ export default function App() {
         />
       )}
 
-      {/* AI Key Settings Modal */}
-      {isApiKeyModalOpen && (
-        <ApiKeyModal
-          onClose={() => setIsApiKeyModalOpen(false)}
-        />
-      )}
     </div>
   );
 }

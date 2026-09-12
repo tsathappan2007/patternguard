@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Sparkles, Compass, Layers, Archive, BookOpen } from 'lucide-react';
+import { Play, Compass, Layers, Archive, BookOpen, ShieldCheck } from 'lucide-react';
 import LogoComponent from './logo';
 
 export default function Header({ 
@@ -8,11 +8,8 @@ export default function Header({
   onOpenScanner, 
   onOpenSandbox, 
   onOpenGuide, 
-  onOpenApiKeyModal, 
   scanCount = 0 
 }) {
-  const hasKey = !!localStorage.getItem('pattern_guard_ai_key');
-
   return (
     <header className="w-full bg-[#0a0a0a]/90 backdrop-blur-md border-b border-[#1e1e1e] sticky top-0 z-40 font-sans">
       <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
@@ -63,6 +60,16 @@ export default function Header({
               )}
             </button>
 
+            <button
+              onClick={() => setActiveTab('authority')}
+              className={`transition-colors cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'authority' ? 'text-white font-medium' : 'text-[#a7a7a7] hover:text-white'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Authority Review</span>
+            </button>
+
             <button 
               onClick={onOpenSandbox} 
               className="text-[#a7a7a7] hover:text-white transition-colors cursor-pointer"
@@ -82,19 +89,6 @@ export default function Header({
         {/* Action Controls */}
         <div className="flex items-center gap-3">
           
-          {/* AI Inference Toggle */}
-          <button
-            onClick={onOpenApiKeyModal}
-            className={`px-3 py-1.5 rounded-[6px] text-[12px] font-mono border flex items-center gap-1.5 cursor-pointer transition-all ${
-              hasKey
-                ? 'border-[#6798ff]/40 text-[#6798ff] bg-[#6798ff]/10'
-                : 'border-[#1e1e1e] text-[#a7a7a7] hover:text-white bg-[#141414]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{hasKey ? 'AI: Active' : 'AI Inference'}</span>
-          </button>
-
           {/* Primary Action Button */}
           <button
             onClick={() => setActiveTab('studio')}

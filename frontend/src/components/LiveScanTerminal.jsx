@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Play, Terminal, AlertCircle, Loader2, Sparkles, Globe, Eye, CheckCircle2, ChevronRight } from 'lucide-react';
+import { apiUrl } from '../lib/api';
 
 export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, initialName, initialFlow }) {
   const [targetUrl, setTargetUrl] = useState(initialUrl || 'http://127.0.0.1:8000/mock/shopsneak');
@@ -59,7 +60,7 @@ export default function LiveScanTerminal({ onClose, onScanComplete, initialUrl, 
     }
 
     try {
-      const response = await fetch('/api/scan/stream', {
+      const response = await fetch(apiUrl('/api/scan/stream'), {
         method: 'POST',
         signal: controller.signal,
         headers: {

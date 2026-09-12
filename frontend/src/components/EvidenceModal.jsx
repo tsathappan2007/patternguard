@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, FileText, Code, Scale, CheckCircle, Eye } from 'lucide-react';
+import { apiUrl } from '../lib/api';
 
 export default function EvidenceModal({ scanData, onClose, onOpenRegulatoryDossier }) {
   const [selectedFindingIndex, setSelectedFindingIndex] = useState(0);
@@ -94,7 +95,7 @@ export default function EvidenceModal({ scanData, onClose, onOpenRegulatoryDossi
                     <span className="text-[#6798ff]">● VERIFIED ELEMENT</span>
                   </div>
                   <img
-                    src={currentFinding.annotated_path || currentFinding.screenshot_path}
+                    src={apiUrl(currentFinding.annotated_path || currentFinding.screenshot_path)}
                     alt="Annotated Proof"
                     className="w-full h-auto max-h-[380px] object-contain rounded-[4px] border border-[#1e1e1e] bg-white"
                   />

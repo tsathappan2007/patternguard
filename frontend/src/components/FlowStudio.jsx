@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Terminal, Play, Globe, Eye, Code, Scale, ShieldAlert, ArrowRight, 
-  Layers, CheckCircle2, ChevronRight, Sparkles, RefreshCw, Loader2, 
+  Layers, CheckCircle2, ChevronRight, RefreshCw, Loader2,
   ExternalLink, FileText, CornerDownRight, Check, AlertTriangle
 } from 'lucide-react';
+import { apiUrl } from '../lib/api';
 
 export default function FlowStudio({ 
   initialScanData, 
   initialParams,
   onScanComplete, 
-  onOpenApiKeyModal,
   onOpenDossier 
 }) {
   const [targetUrl, setTargetUrl] = useState('http://127.0.0.1:8000/mock/shopsneak');
@@ -87,7 +87,7 @@ export default function FlowStudio({
     }
 
     try {
-      const response = await fetch('/api/scan/stream', {
+      const response = await fetch(apiUrl('/api/scan/stream'), {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -165,6 +165,8 @@ export default function FlowStudio({
   };
 
   const currentNode = navigationNodes[activeNodeIndex] || null;
+  const auditBlocked = scanResult?.audit_status === 'human_review_required';
+  const nodeBlocked = currentNode?.audit_status === 'human_review_required';
 
   return (
     <div className="w-full min-h-[calc(100vh-56px)] bg-[#0a0a0a] text-white p-4 sm:p-8 font-sans">
@@ -186,14 +188,6 @@ export default function FlowStudio({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={onOpenApiKeyModal}
-              className="px-3 py-1.5 rounded-[6px] text-[12px] font-mono border border-[#1e1e1e] bg-[#141414] text-[#a7a7a7] hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#6798ff]" />
-              <span>AI Config</span>
-            </button>
-
             {scanResult && (
               <button
                 onClick={() => onOpenDossier(scanResult)}
@@ -366,7 +360,7 @@ export default function FlowStudio({
                 {currentNode && (currentNode.annotated_screenshot || currentNode.raw_screenshot) ? (
                   <div className="w-full flex flex-col items-center">
                     <img
-                      src={currentNode.annotated_screenshot || currentNode.raw_screenshot}
+                      src={apiUrl(currentNode.annotated_screenshot || currentNode.raw_screenshot)}
                       alt="Step Viewport"
                       className="w-full h-auto max-h-[420px] object-contain rounded-[4px] border border-[#1e1e1e] bg-white shadow-md"
                     />
@@ -460,13 +454,17 @@ export default function FlowStudio({
             <div className="p-5 rounded-[8px] bg-[#141414] border border-[#1e1e1e] space-y-3 shadow-xl">
               <div className="flex items-center justify-between text-[11px] font-mono uppercase text-[#7c7c7c]">
                 <span>Active Step Violations ({currentNode?.findings?.length || 0})</span>
-                <span className={(currentNode?.findings?.length || 0) > 0 ? 'text-[#ff6b6b]' : 'text-[#51cf66]'}>
-                  {(currentNode?.findings?.length || 0) > 0 ? 'Dark Patterns Detected' : 'Compliant Step'}
+                <span className={nodeBlocked ? 'text-[#ffa94d]' : (currentNode?.findings?.length || 0) > 0 ? 'text-[#ff6b6b]' : 'text-[#51cf66]'}>
+                  {nodeBlocked ? 'Human Review Required' : (currentNode?.findings?.length || 0) > 0 ? 'Dark Patterns Detected' : 'Compliant Step'}
                 </span>
               </div>
 
               <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                {(!currentNode?.findings || currentNode.findings.length === 0) ? (
+                {nodeBlocked ? (
+                  <div className="p-4 rounded-[6px] border border-[#ffa94d]/30 bg-[#ffa94d]/10 text-center text-[12px] text-[#ffd0a3]">
+                    {currentNode.human_review_reason || 'Protected access challenge detected. This is not a compliance result.'}
+                  </div>
+                ) : (!currentNode?.findings || currentNode.findings.length === 0) ? (
                   <div className="p-4 rounded-[6px] border border-[#1e1e1e] bg-[#0a0a0a] text-center text-[12px] text-[#555] italic">
                     No deceptive patterns detected on this step node.
                   </div>
@@ -515,12 +513,17 @@ export default function FlowStudio({
             {scanResult && (
               <div className="p-4 rounded-[8px] border border-[#313131] bg-[#141414] text-white flex items-center justify-between shadow-2xl">
                 <div>
-                  <div className="font-mono text-[13px] text-[#6798ff] font-bold uppercase">
-                    Manipulation Index: {scanResult.score_summary.manipulation_index}/100 [GRADE {scanResult.score_summary.grade}]
-                  </div>
-                  <div className="text-[11px] text-[#a7a7a7] font-mono mt-0.5">
-                    {scanResult.findings.length} Total Violations Flagged · {scanResult.duration_ms}ms Run Time
-                  </div>
+                  {auditBlocked ? <>
+                    <div className="font-mono text-[13px] text-[#ffa94d] font-bold uppercase">Audit blocked — human review required</div>
+                    <div className="text-[11px] text-[#ffd0a3] font-mono mt-0.5">No compliance score was issued because the target returned a verification challenge.</div>
+                  </> : <>
+                    <div className="font-mono text-[13px] text-[#6798ff] font-bold uppercase">
+                      Manipulation Index: {scanResult.score_summary.manipulation_index}/100 [GRADE {scanResult.score_summary.grade}]
+                    </div>
+                    <div className="text-[11px] text-[#a7a7a7] font-mono mt-0.5">
+                      {scanResult.findings.length} Total Violations Flagged · {scanResult.duration_ms}ms Run Time
+                    </div>
+                  </>}
                 </div>
                 <button
                   onClick={() => onOpenDossier(scanResult)}

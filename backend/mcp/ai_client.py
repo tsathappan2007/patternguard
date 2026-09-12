@@ -118,8 +118,10 @@ def call_ai_inference(
     system_prompt = (
         "You are Pattern Guard's AI Dark Pattern Legal Auditor. "
         "Analyze the website step data for deceptive UX patterns: sneaked add-ons, drip pricing, confirmshaming, fake countdown clocks, roach motel cancellation. "
+        "Return a finding only when the supplied page text contains direct evidence. Do not infer a cancellation, subscription, fee, or checkout flow from a generic product page. "
+        "For every finding, copy an exact visible supporting phrase into evidence_text; if no exact phrase exists, return no finding. "
         "Respond with a JSON object containing a 'findings' list where each finding has: "
-        "'pattern' (string), 'severity' ('Critical'|'High'|'Medium'), 'explanation' (string), 'mechanism' (string)."
+        "'pattern' (string), 'severity' ('Critical'|'High'|'Medium'), 'explanation' (string), 'mechanism' (string), 'evidence_text' (string)."
     )
 
     user_prompt = f"Website Step Data:\n{json.dumps(prompt_data)}"
@@ -155,7 +157,7 @@ def call_ai_inference(
                         "plain_explanation": item.get("explanation", "AI identified deceptive psychological framing."),
                         "dom_selector": ".deceptive-ui",
                         "dom_snippet": "<span>Deceptive Framing</span>",
-                        "element_text": item.get("pattern", ""),
+                        "element_text": item.get("evidence_text", ""),
                         "bounding_box": None,
                         "psychological_mechanism": item.get("mechanism", "Cognitive Bias Exploitation"),
                         "regulatory_citation": "FTC Act § 5 / EU DSA Art. 25",
@@ -175,3 +177,60 @@ def call_ai_inference(
             emit_log(f"[AI Notice]: {str(e)[:60]}. Using deterministic rules.")
 
     return []
+
+
+def compare_compliance_reports(company_report: str, findings: List[Dict[str, Any]], reconciliation: List[Dict[str, Any]], human_review_reason: Optional[str] = None) -> Dict[str, str]:
+    """Compare a company's declaration against recorded audit evidence.
+
+    Groq is used when configured. The deterministic fallback is intentionally
+    conservative and never presents itself as an AI legal decision.
+    """
+    if human_review_reason:
+        return {
+            "source": "Pattern Guard safety gate",
+            "conclusion": "HUMAN INTERVENTION REQUIRED",
+            "rationale": human_review_reason
+        }
+
+    contradictions = [item for item in reconciliation if item.get("outcome") == "contradicted"]
+    fallback = {
+        "source": "Pattern Guard evidence reconciliation",
+        "conclusion": "CHANGES REQUESTED" if contradictions else "ELIGIBLE FOR HUMAN APPROVAL",
+        "rationale": (
+            f"{len(contradictions)} declared compliance claim(s) conflict with recorded scanner evidence."
+            if contradictions else "No declared claim was contradicted by the completed automated evidence collection; an authorized reviewer must still decide."
+        )
+    }
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    if not key:
+        return fallback
+
+    try:
+        endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        model = get_best_available_model(endpoint, key, "Groq")
+        evidence = [{
+            "pattern": item.get("pattern_name"), "severity": item.get("severity"),
+            "explanation": item.get("plain_explanation"), "element_text": item.get("element_text")
+        } for item in findings[:12]]
+        prompt = {
+            "company_compliance_report": company_report,
+            "recorded_findings": evidence,
+            "claim_reconciliation": reconciliation,
+            "instruction": "Compare only the supplied declaration and evidence. Return JSON with conclusion exactly one of: ELIGIBLE FOR HUMAN APPROVAL, CHANGES REQUESTED, HUMAN INTERVENTION REQUIRED; and rationale under 90 words. This is a recommendation, never a legal approval."
+        }
+        response = requests.post(endpoint, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json={
+            "model": model,
+            "messages": [{"role": "system", "content": "You are an evidence-constrained compliance comparison assistant. Do not invent evidence."}, {"role": "user", "content": json.dumps(prompt)}],
+            "temperature": 0, "max_tokens": 220
+        }, timeout=12)
+        if response.status_code == 200:
+            content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            parsed = json.loads(match.group(0)) if match else {}
+            conclusion = parsed.get("conclusion", fallback["conclusion"])
+            rationale = parsed.get("rationale", fallback["rationale"])
+            if conclusion in {"ELIGIBLE FOR HUMAN APPROVAL", "CHANGES REQUESTED", "HUMAN INTERVENTION REQUIRED"} and isinstance(rationale, str):
+                return {"source": f"Groq ({model})", "conclusion": conclusion, "rationale": rationale[:700]}
+    except Exception:
+        pass
+    return fallback

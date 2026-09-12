@@ -3,9 +3,8 @@ import uuid
 from typing import List, Dict, Any, Optional
 from PIL import Image, ImageDraw
 
-STATIC_DIR = os.getenv(
-    "PATTERN_GUARD_STATIC_DIR",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+STATIC_DIR = os.getenv("PATTERN_GUARD_STATIC_DIR", "").strip() or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static"
 )
 EVIDENCE_DIR = os.path.join(STATIC_DIR, "evidence")
 os.makedirs(EVIDENCE_DIR, exist_ok=True)

@@ -20,9 +20,15 @@ class RoachMotelDetector(BaseDetector):
         cancel_step_count = previous_cancel_steps + (1 if current_is_cancel_step else 0)
         signup_step_count = flow_context.get("signup_step_count", 1)
         
-        # Detect Phone-Call or Support-Ticket Only barriers
+        # A support/contact phrase elsewhere on a product or help page is not a
+        # cancellation barrier. This detector is valid only after the crawler has
+        # entered a verified cancellation journey.
         barrier_detected = step_data.get("cancellation_barrier")
-        if barrier_detected:
+        is_verified_cancellation_page = (
+            flow_type == "cancellation"
+            and (current_is_cancel_step or step_data.get("page_context") == "cancellation")
+        )
+        if barrier_detected and is_verified_cancellation_page:
             results.append(DetectionResult(
                 category="Obstruction",
                 pattern_name="Offline/Support-Wall Cancellation Barrier",

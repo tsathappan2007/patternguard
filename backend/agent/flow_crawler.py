@@ -24,9 +24,8 @@ except ImportError:
     from scoring.calculator import calculate_manipulation_index
     from mcp.ai_client import call_ai_inference
 
-STATIC_DIR = os.getenv(
-    "PATTERN_GUARD_STATIC_DIR",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+STATIC_DIR = os.getenv("PATTERN_GUARD_STATIC_DIR", "").strip() or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static"
 )
 SCREENSHOTS_DIR = os.path.join(STATIC_DIR, "screenshots")
 os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
@@ -126,6 +125,9 @@ class AutonomousFlowCrawler:
         flow_context = {"steps": [], "flow_type": flow_type, "signup_step_count": 1}
         visited_states = set()
         performed_actions = set()
+        completion_reason = "Maximum configured audit steps reached"
+        audit_status = "completed"
+        human_review_reason = None
 
         with sync_playwright() as p:
             browser = None
@@ -139,6 +141,7 @@ class AutonomousFlowCrawler:
                         emit("log", {"message": f"[Bright Data Notice]: {str(bd_err)[:80]}. Falling back to local Chromium."})
                         browser = None
 
+            using_bright_data = browser is not None
             if browser is None:
                 browser = p.chromium.launch(
                     headless=True,
@@ -152,15 +155,21 @@ class AutonomousFlowCrawler:
                     ]
                 )
 
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                locale="en-US",
-                extra_http_headers={
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
-                }
-            )
+            # Scraping Browser controls its own fingerprint and rejects caller-set
+            # Accept / Accept-Language headers. Keep local Chromium deterministic,
+            # but let Bright Data supply its managed browser profile unchanged.
+            if using_bright_data:
+                context = browser.new_context(viewport={"width": 1280, "height": 800})
+            else:
+                context = browser.new_context(
+                    viewport={"width": 1280, "height": 800},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    locale="en-US",
+                    extra_http_headers={
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+                    }
+                )
 
             def guard_navigation(route):
                 if route.request.is_navigation_request():
@@ -241,6 +250,33 @@ class AutonomousFlowCrawler:
 
                 # High-speed single JS evaluation for comprehensive DOM features (<10ms)
                 step_data = self._fast_extract_dom(page, step_idx, raw_rel_url)
+                access_challenge = self._detect_access_challenge(step_title, step_data)
+                if access_challenge:
+                    audit_status = "human_review_required"
+                    human_review_reason = access_challenge
+                    completion_reason = access_challenge
+                    blocked_node = {
+                        "step_number": step_idx,
+                        "url": step_data.get("url", page.url),
+                        "title": step_data.get("title") or step_title,
+                        "raw_screenshot": raw_rel_url,
+                        "annotated_screenshot": raw_rel_url,
+                        "findings_count": 0,
+                        "findings": [],
+                        "buttons": step_data.get("buttons", []),
+                        "checkboxes": step_data.get("checkboxes", []),
+                        "prices": step_data.get("prices", []),
+                        "disclaimers": step_data.get("disclaimers", []),
+                        "navigation_intent": "Audit blocked — human verification required",
+                        "navigation_action": "human_review_required",
+                        "audit_status": audit_status,
+                        "human_review_reason": access_challenge
+                    }
+                    navigation_nodes.append(blocked_node)
+                    emit("step_started", {"step_number": step_idx, "title": blocked_node["title"], "url": blocked_node["url"], "screenshot_url": raw_rel_url, "buttons_count": 0, "checkboxes_count": 0, "prices": []})
+                    emit("log", {"message": f"[Human Review Required]: {access_challenge}"})
+                    emit("step_completed", {"step_number": step_idx, "annotated_screenshot": raw_rel_url, "findings_count": 0, "node_data": blocked_node})
+                    break
                 state_key = (page.url.rstrip("/"), step_data.get("page_context", "unknown"))
                 if state_key in visited_states:
                     emit("log", {"message": f"Navigation loop prevented at {page.url}"})
@@ -299,8 +335,11 @@ class AutonomousFlowCrawler:
                         model_override=ai_model
                     )
                     for af in ai_findings:
-                        af["id"] = f"find_{uuid.uuid4().hex[:8]}"
-                        step_findings.append(af)
+                        if self._is_ai_finding_supported(af, step_data, flow_type):
+                            af["id"] = f"find_{uuid.uuid4().hex[:8]}"
+                            step_findings.append(af)
+                        else:
+                            emit("log", {"message": "[AI Notice]: Discarded an unsupported finding; no matching on-page evidence was verified."})
 
                 for sf in step_findings:
                     sf["step_number"] = step_idx
@@ -345,6 +384,18 @@ class AutonomousFlowCrawler:
                     nav_action_reason = transition.get("reason", "Completed Funnel Walkthrough")
                     navigation_action = transition.get("action_type")
 
+                protected_boundary_terms = (
+                    "authentication boundary", "sign in", "login required", "payment boundary",
+                    "captcha", "human verification", "otp", "two-factor"
+                )
+                if not transition.get("continue") and any(term in nav_action_reason.lower() for term in protected_boundary_terms):
+                    audit_status = "human_review_required"
+                    human_review_reason = (
+                        f"Automated audit reached a protected boundary: {nav_action_reason}. "
+                        "The audit ended without bypassing the control; an authorized reviewer needs staging or approved evidence."
+                    )
+                    completion_reason = human_review_reason
+
                 # Build rich navigation node structure
                 node_structure = {
                     "step_number": step_idx,
@@ -369,6 +420,9 @@ class AutonomousFlowCrawler:
                     "navigation_intent": nav_action_reason,
                     "navigation_action": navigation_action
                 }
+                if audit_status == "human_review_required":
+                    node_structure["audit_status"] = audit_status
+                    node_structure["human_review_reason"] = human_review_reason
                 navigation_nodes.append(node_structure)
 
                 emit("step_completed", {
@@ -379,6 +433,7 @@ class AutonomousFlowCrawler:
                 })
 
                 if not transition.get("continue") or not next_url:
+                    completion_reason = nav_action_reason
                     break
                 current_url = self._validate_public_target(next_url)
                 page_is_ready = bool(transition.get("page_ready"))
@@ -390,6 +445,12 @@ class AutonomousFlowCrawler:
         if flow_type == "cancellation":
             flow_context["asymmetry_ratio"] = max(1.0, len(navigation_nodes) / max(1, flow_context["signup_step_count"]))
         score_summary = calculate_manipulation_index(all_findings, flow_context)
+        if audit_status == "human_review_required":
+            score_summary.update({
+                "grade": "N/A",
+                "classification": "Audit incomplete — protected access challenge",
+                "ftc_risk_level": "Human review required"
+            })
         severity_rank = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
         primary_finding = max(
             all_findings,
@@ -398,9 +459,12 @@ class AutonomousFlowCrawler:
         )
         primary_pattern = primary_finding["pattern_name"] if primary_finding else "Clean Flow"
 
-        emit("log", {
-            "message": f"Audit complete in {duration_ms}ms! Navigation Nodes: {len(navigation_nodes)} · Score: {score_summary['manipulation_index']}/100 [GRADE {score_summary['grade']}]"
-        })
+        if audit_status == "human_review_required":
+            emit("log", {"message": f"Audit stopped in {duration_ms}ms: protected access challenge detected. No compliance score was issued."})
+        else:
+            emit("log", {
+                "message": f"Audit complete in {duration_ms}ms! Navigation Nodes: {len(navigation_nodes)} · Score: {score_summary['manipulation_index']}/100 [GRADE {score_summary['grade']}]"
+            })
 
         final_result = {
             "site_id": site_id,
@@ -413,7 +477,10 @@ class AutonomousFlowCrawler:
             "score_summary": score_summary,
             "findings": all_findings,
             "steps": navigation_nodes,
-            "navigation_nodes": navigation_nodes
+            "navigation_nodes": navigation_nodes,
+            "completion_reason": completion_reason,
+            "audit_status": audit_status,
+            "human_review_reason": human_review_reason
         }
 
         try:
@@ -443,6 +510,74 @@ class AutonomousFlowCrawler:
                 seen.add(key)
                 unique.append(finding)
         return unique
+
+    @staticmethod
+    def _is_ai_finding_supported(finding: Dict[str, Any], step_data: Dict[str, Any], flow_type: str) -> bool:
+        """Require an AI finding to cite visible, in-scope page evidence.
+
+        AI may suggest hypotheses, but it must not create a regulatory finding
+        without a quoted page fragment and the relevant flow context.
+        """
+        evidence = " ".join([
+            str(step_data.get("page_text", "")),
+            " ".join(str(button.get("text", "")) for button in step_data.get("buttons", [])),
+            " ".join(str(element.get("text", "")) for element in step_data.get("interactive_elements", []))
+        ]).lower()
+        quoted = str(finding.get("element_text") or "").strip().lower()
+        if len(quoted) < 4 or quoted not in evidence:
+            return False
+
+        finding_text = " ".join([
+            str(finding.get("pattern_name", "")),
+            str(finding.get("plain_explanation", "")),
+            quoted
+        ]).lower()
+        cancellation_terms = ("cancel", "cancellation", "unsubscribe", "subscription", "roach motel", "support-wall")
+        if any(term in finding_text for term in cancellation_terms):
+            return (
+                flow_type == "cancellation"
+                and step_data.get("page_context") == "cancellation"
+                and any(term in evidence for term in ("cancel", "unsubscribe", "end membership"))
+            )
+
+        pricing_terms = ("price", "fee", "checkout", "basket", "cart", "upsell", "add-on")
+        if any(term in finding_text for term in pricing_terms):
+            return flow_type == "checkout" and step_data.get("page_context") in {"product", "cart", "checkout"}
+        return True
+
+    @staticmethod
+    def _detect_access_challenge(title: str, step_data: Dict[str, Any]) -> Optional[str]:
+        """Identify interstitial anti-bot/login challenges before scoring a site."""
+        content = " ".join([
+            str(title or ""),
+            str(step_data.get("title", "")),
+            str(step_data.get("page_text", ""))[:5000]
+        ]).lower()
+        challenge_signals = (
+            "just a moment", "checking your browser", "verify you are human",
+            "humans only", "captcha", "security check", "access denied",
+            "unusual traffic", "enable javascript and cookies", "cloudflare",
+            # Common localized verification interstitials. These are access
+            # challenges, not auditable site content.
+            "verificación del dispositivo", "verificacion del dispositivo",
+            "después de la verificación", "despues de la verificacion",
+            "contenido solicitado estará disponible", "contenido solicitado estara disponible",
+            "verifica il tuo dispositivo", "vérification de votre navigateur",
+            "überprüfen sie ihren browser", "verifique o seu navegador",
+            "se ha detectado un uso indebido", "el acceso se ha bloqueado",
+            "tiene dificultades para acceder al sitio", "problemas para acceder al sitio"
+        )
+        blocked_access_patterns = (
+            r"\bacceso\s+se\s+ha\s+bloqueado\b",
+            r"\baccess\s+(?:has been|is)\s+blocked\b",
+            r"\b(?:automated|unusual|improper)\s+(?:use|activity|traffic)\b",
+        )
+        if any(signal in content for signal in challenge_signals) or any(re.search(pattern, content) for pattern in blocked_access_patterns):
+            return (
+                "The target returned an anti-bot or verification interstitial instead of the requested website. "
+                "No compliance score was issued; provide an authorized staging flow or request human review."
+            )
+        return None
 
     @staticmethod
     def _validate_public_target(target_url: str) -> str:
@@ -481,12 +616,12 @@ class AutonomousFlowCrawler:
 
             if existing:
                 cursor.execute("""
-                    UPDATE sites SET name = ?, category = ?, manipulation_index = ?, grade = ?,
+                    UPDATE sites SET name = ?, category = ?, manipulation_index = ?, grade = ?, status = ?,
                         scans_count = ?, critical_count = ?, high_count = ?, medium_count = ?, low_count = ?,
                         top_violation = ?, primary_pattern = ?, ftc_risk_level = ?, last_scanned_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 """, (
-                    result["site_name"], result["flow_type"], score["manipulation_index"], score["grade"],
+                    result["site_name"], result["flow_type"], score["manipulation_index"], score["grade"], result.get("audit_status", "completed"),
                     existing["scans_count"] + 1, score["critical_count"], score["high_count"],
                     score["medium_count"], score["low_count"], top_violation, primary_pattern,
                     score["ftc_risk_level"], site_id
@@ -497,10 +632,10 @@ class AutonomousFlowCrawler:
                         id, domain, name, category, manipulation_index, grade, status, scans_count,
                         critical_count, high_count, medium_count, low_count, top_violation,
                         primary_pattern, ftc_risk_level
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'audited', 1, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     site_id, result["domain"], result["site_name"], result["flow_type"],
-                    score["manipulation_index"], score["grade"], score["critical_count"],
+                    score["manipulation_index"], score["grade"], result.get("audit_status", "completed"), score["critical_count"],
                     score["high_count"], score["medium_count"], score["low_count"],
                     top_violation, primary_pattern, score["ftc_risk_level"]
                 ))
@@ -509,9 +644,9 @@ class AutonomousFlowCrawler:
                 INSERT INTO scans (
                     id, site_id, target_url, flow_type, status, manipulation_index, grade,
                     total_steps, findings_count, duration_ms
-                ) VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                result["scan_id"], site_id, target_url, result["flow_type"], score["manipulation_index"],
+                result["scan_id"], site_id, target_url, result["flow_type"], result.get("audit_status", "completed"), score["manipulation_index"],
                 score["grade"], result["total_steps"], len(result["findings"]), result["duration_ms"]
             ))
 
